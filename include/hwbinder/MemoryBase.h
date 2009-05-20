@@ -14,33 +14,38 @@
  * limitations under the License.
  */
 
+#ifndef ANDROID_MEMORY_BASE_H
+#define ANDROID_MEMORY_BASE_H
 
 #include <stdlib.h>
 #include <stdint.h>
 
-#include <binder/MemoryBase.h>
+#include <binder/IMemory.h>
 
 
 namespace android {
 
 // ---------------------------------------------------------------------------
 
-MemoryBase::MemoryBase(const sp<IMemoryHeap>& heap,
-        ssize_t offset, size_t size)
-    : mSize(size), mOffset(offset), mHeap(heap)
+class MemoryBase : public BnMemory 
 {
-}
+public:
+    MemoryBase(const sp<IMemoryHeap>& heap, ssize_t offset, size_t size);
+    virtual ~MemoryBase();
+    virtual sp<IMemoryHeap> getMemory(ssize_t* offset, size_t* size) const;
 
-sp<IMemoryHeap> MemoryBase::getMemory(ssize_t* offset, size_t* size) const
-{
-    if (offset) *offset = mOffset;
-    if (size)   *size = mSize;
-    return mHeap;
-}
+protected:
+    size_t getSize() const { return mSize; }
+    ssize_t getOffset() const { return mOffset; }
+    const sp<IMemoryHeap>& getHeap() const { return mHeap; }
 
-MemoryBase::~MemoryBase()
-{
-}
+private:
+    size_t          mSize;
+    ssize_t         mOffset;
+    sp<IMemoryHeap> mHeap;
+};
 
 // ---------------------------------------------------------------------------
 }; // namespace android
+
+#endif // ANDROID_MEMORY_BASE_H
