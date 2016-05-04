@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <binder/Debug.h>
+#include <hwbinder/Debug.h>
 
 #include <utils/misc.h>
 

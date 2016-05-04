@@ -16,11 +16,11 @@
 
 #define LOG_TAG "ServiceManager"
 
-#include <binder/IServiceManager.h>
+#include <hwbinder/IServiceManager.h>
 
 #include <utils/Log.h>
-#include <binder/IPCThreadState.h>
-#include <binder/Parcel.h>
+#include <hwbinder/IPCThreadState.h>
+#include <hwbinder/Parcel.h>
 #include <utils/String8.h>
 #include <utils/SystemClock.h>
 

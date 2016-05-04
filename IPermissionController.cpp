@@ -16,10 +16,10 @@
 
 #define LOG_TAG "PermissionController"
 
-#include <binder/IPermissionController.h>
+#include <hwbinder/IPermissionController.h>
 
 #include <utils/Log.h>
-#include <binder/Parcel.h>
+#include <hwbinder/Parcel.h>
 #include <utils/String8.h>
 
 #include <private/binder/Static.h>

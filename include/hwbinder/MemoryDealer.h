@@ -21,8 +21,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include <binder/IMemory.h>
-#include <binder/MemoryHeapBase.h>
+#include <hwbinder/IMemory.h>
+#include <hwbinder/MemoryHeapBase.h>
 
 namespace android {
 // ----------------------------------------------------------------------------

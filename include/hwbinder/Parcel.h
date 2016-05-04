@@ -29,8 +29,8 @@
 #include <utils/Flattenable.h>
 #include <linux/binder.h>
 
-#include <binder/IInterface.h>
-#include <binder/Parcelable.h>
+#include <hwbinder/IInterface.h>
+#include <hwbinder/Parcelable.h>
 
 // ---------------------------------------------------------------------------
 namespace android {

@@ -22,10 +22,10 @@
 #include <utils/Errors.h>
 #include <utils/String16.h>
 
-#include <binder/IServiceManager.h>
-#include <binder/IPCThreadState.h>
-#include <binder/ProcessState.h>
-#include <binder/IServiceManager.h>
+#include <hwbinder/IServiceManager.h>
+#include <hwbinder/IPCThreadState.h>
+#include <hwbinder/ProcessState.h>
+#include <hwbinder/IServiceManager.h>
 
 // ---------------------------------------------------------------------------
 namespace android {

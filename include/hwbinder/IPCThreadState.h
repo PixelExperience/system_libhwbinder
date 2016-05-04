@@ -18,8 +18,8 @@
 #define ANDROID_IPC_THREAD_STATE_H
 
 #include <utils/Errors.h>
-#include <binder/Parcel.h>
-#include <binder/ProcessState.h>
+#include <hwbinder/Parcel.h>
+#include <hwbinder/ProcessState.h>
 #include <utils/Vector.h>
 
 #if defined(_WIN32)

@@ -18,8 +18,8 @@
 #ifndef ANDROID_ISERVICE_MANAGER_H
 #define ANDROID_ISERVICE_MANAGER_H
 
-#include <binder/IInterface.h>
-#include <binder/IPermissionController.h>
+#include <hwbinder/IInterface.h>
+#include <hwbinder/IPermissionController.h>
 #include <utils/Vector.h>
 #include <utils/String16.h>
 

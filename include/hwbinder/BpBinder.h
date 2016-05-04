@@ -17,7 +17,7 @@
 #ifndef ANDROID_BPBINDER_H
 #define ANDROID_BPBINDER_H
 
-#include <binder/IBinder.h>
+#include <hwbinder/IBinder.h>
 #include <utils/KeyedVector.h>
 #include <utils/threads.h>
 

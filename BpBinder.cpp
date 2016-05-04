@@ -17,10 +17,10 @@
 #define LOG_TAG "BpBinder"
 //#define LOG_NDEBUG 0
 
-#include <binder/BpBinder.h>
+#include <hwbinder/BpBinder.h>
 
-#include <binder/IPCThreadState.h>
-#include <binder/IResultReceiver.h>
+#include <hwbinder/IPCThreadState.h>
+#include <hwbinder/IResultReceiver.h>
 #include <utils/Log.h>
 
 #include <stdio.h>

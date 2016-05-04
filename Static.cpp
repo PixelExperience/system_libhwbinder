@@ -19,8 +19,8 @@
 
 #include <private/binder/Static.h>
 
-#include <binder/BufferedTextOutput.h>
-#include <binder/IPCThreadState.h>
+#include <hwbinder/BufferedTextOutput.h>
+#include <hwbinder/IPCThreadState.h>
 #include <utils/Log.h>
 
 namespace android {

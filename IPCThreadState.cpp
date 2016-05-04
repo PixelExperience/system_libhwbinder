@@ -16,11 +16,11 @@
 
 #define LOG_TAG "IPCThreadState"
 
-#include <binder/IPCThreadState.h>
+#include <hwbinder/IPCThreadState.h>
 
-#include <binder/Binder.h>
-#include <binder/BpBinder.h>
-#include <binder/TextOutput.h>
+#include <hwbinder/Binder.h>
+#include <hwbinder/BpBinder.h>
+#include <hwbinder/TextOutput.h>
 
 #include <cutils/sched_policy.h>
 #include <utils/Log.h>

@@ -18,14 +18,14 @@
 
 #include <cutils/process_name.h>
 
-#include <binder/ProcessState.h>
+#include <hwbinder/ProcessState.h>
 
 #include <utils/Atomic.h>
-#include <binder/BpBinder.h>
-#include <binder/IPCThreadState.h>
+#include <hwbinder/BpBinder.h>
+#include <hwbinder/IPCThreadState.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
-#include <binder/IServiceManager.h>
+#include <hwbinder/IServiceManager.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
 

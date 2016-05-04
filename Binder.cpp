@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <binder/Binder.h>
+#include <hwbinder/Binder.h>
 
 #include <atomic>
 #include <utils/misc.h>
-#include <binder/BpBinder.h>
-#include <binder/IInterface.h>
-#include <binder/IResultReceiver.h>
-#include <binder/Parcel.h>
+#include <hwbinder/BpBinder.h>
+#include <hwbinder/IInterface.h>
+#include <hwbinder/IResultReceiver.h>
+#include <hwbinder/Parcel.h>
 
 #include <stdio.h>
 

@@ -16,12 +16,12 @@
 
 #define LOG_TAG "PersistableBundle"
 
-#include <binder/PersistableBundle.h>
+#include <hwbinder/PersistableBundle.h>
 
 #include <limits>
 
-#include <binder/IBinder.h>
-#include <binder/Parcel.h>
+#include <hwbinder/IBinder.h>
+#include <hwbinder/Parcel.h>
 #include <log/log.h>
 #include <utils/Errors.h>
 

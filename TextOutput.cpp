@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <binder/TextOutput.h>
+#include <hwbinder/TextOutput.h>
 
-#include <binder/Debug.h>
+#include <hwbinder/Debug.h>
 
 #include <utils/String8.h>
 #include <utils/String16.h>

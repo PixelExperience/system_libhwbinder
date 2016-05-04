@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <binder/BufferedTextOutput.h>
-#include <binder/Debug.h>
+#include <hwbinder/BufferedTextOutput.h>
+#include <hwbinder/Debug.h>
 
 #include <utils/Atomic.h>
 #include <utils/Log.h>

@@ -30,13 +30,13 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
-#include <binder/Binder.h>
-#include <binder/BpBinder.h>
-#include <binder/IPCThreadState.h>
-#include <binder/Parcel.h>
-#include <binder/ProcessState.h>
-#include <binder/Status.h>
-#include <binder/TextOutput.h>
+#include <hwbinder/Binder.h>
+#include <hwbinder/BpBinder.h>
+#include <hwbinder/IPCThreadState.h>
+#include <hwbinder/Parcel.h>
+#include <hwbinder/ProcessState.h>
+#include <hwbinder/Status.h>
+#include <hwbinder/TextOutput.h>
 
 #include <cutils/ashmem.h>
 #include <utils/Debug.h>
