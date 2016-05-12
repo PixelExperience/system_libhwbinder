@@ -960,11 +960,9 @@ status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
     return NO_ERROR;
 }
 
-sp<BBinder> the_context_object;
-
-void setTheContextObject(sp<BBinder> obj)
+void IPCThreadState::setTheContextObject(sp<BBinder> obj)
 {
-    the_context_object = obj;
+    mContextObject = obj;
 }
 
 status_t IPCThreadState::executeCommand(int32_t cmd)
@@ -972,7 +970,6 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
     BBinder* obj;
     RefBase::weakref_type* refs;
     status_t result = NO_ERROR;
-    
     switch ((uint32_t)cmd) {
     case BR_ERROR:
         result = mIn.readInt32();
@@ -1135,8 +1132,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                 }
 
             } else {
-                error = the_context_object->transact(tr.code, buffer, &reply, tr.flags,
-                        reply_callback);
+                error = mContextObject->transact(tr.code, buffer, &reply, tr.flags, reply_callback);
             }
 
             if ((tr.flags & TF_ONE_WAY) == 0) {

@@ -19,7 +19,7 @@
 #define ANDROID_HIDL_ISERVICE_MANAGER_H
 
 #include <hwbinder/IInterface.h>
-#include <utils/Vector.h>
+#include <hwbinder/Hidl.h>
 #include <utils/String16.h>
 
 namespace android {
@@ -35,24 +35,24 @@ public:
      * Retrieve an existing service, blocking for a few seconds
      * if it doesn't yet exist.
      */
-    virtual sp<IBinder>         getService( const String16& name) const = 0;
+    virtual sp<IBinder>         getService( const String16& name,
+                                            const android::hidl::hidl_version version
+                                          ) const = 0;
 
     /**
      * Retrieve an existing service, non-blocking.
      */
-    virtual sp<IBinder>         checkService( const String16& name) const = 0;
+    virtual sp<IBinder>         checkService( const String16& name,
+                                              const android::hidl::hidl_version version
+                                            ) const = 0;
 
     /**
      * Register a service.
      */
     virtual status_t            addService( const String16& name,
                                             const sp<IBinder>& service,
+                                            const android::hidl::hidl_version version,
                                             bool allowIsolated = false) = 0;
-
-    /**
-     * Return list of all existing services.
-     */
-    virtual Vector<String16>    listServices() = 0;
 
     enum {
         GET_SERVICE_TRANSACTION = IBinder::FIRST_CALL_TRANSACTION,
@@ -65,20 +65,16 @@ public:
 sp<IServiceManager> defaultServiceManager();
 
 template<typename INTERFACE>
-status_t getService(const String16& name, sp<INTERFACE>* outService)
+status_t getService(const String16& name, android::hidl::hidl_version version,
+        sp<INTERFACE>* outService)
 {
     const sp<IServiceManager> sm = defaultServiceManager();
     if (sm != NULL) {
-        *outService = interface_cast<INTERFACE>(sm->getService(name));
+        *outService = interface_cast<INTERFACE>(sm->getService(name, version));
         if ((*outService) != NULL) return NO_ERROR;
     }
     return NAME_NOT_FOUND;
 }
-
-bool checkCallingPermission(const String16& permission);
-bool checkCallingPermission(const String16& permission,
-                            int32_t* outPid, int32_t* outUid);
-bool checkPermission(const String16& permission, pid_t pid, uid_t uid);
 
 }; // namespace hidl
 }; // namespace android

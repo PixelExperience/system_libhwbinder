@@ -89,6 +89,8 @@ public:
             // the maximum number of binder threads threads allowed for this process.
             void                blockUntilThreadAvailable();
 
+            // Service manager registration
+            void                setTheContextObject(sp<BBinder> obj);
 private:
                                 IPCThreadState();
                                 ~IPCThreadState();
@@ -127,6 +129,7 @@ private:
             uid_t               mCallingUid;
             int32_t             mStrictModePolicy;
             int32_t             mLastTransactionBinderFlags;
+            sp<BBinder>         mContextObject;
 };
 
 }; // namespace hidl
