@@ -23,7 +23,7 @@
 #include <utils/Vector.h>
 #include <cutils/threads.h>
 
-#include <private/binder/Static.h>
+#include <hwbinder/Static.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +31,7 @@
 // ---------------------------------------------------------------------------
 
 namespace android {
+namespace hidl {
 
 struct BufferedTextOutput::BufferState : public RefBase
 {
@@ -279,4 +280,5 @@ BufferedTextOutput::BufferState* BufferedTextOutput::getBuffer() const
     return mGlobalState;
 }
 
+}; // namespace hidl
 }; // namespace android

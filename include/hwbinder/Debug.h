@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BINDER_DEBUG_H
-#define ANDROID_BINDER_DEBUG_H
+#ifndef ANDROID_HIDL_BINDER_DEBUG_H
+#define ANDROID_HIDL_BINDER_DEBUG_H
 
 #include <stdint.h>
 #include <sys/types.h>
 
 namespace android {
+namespace hidl {
 // ---------------------------------------------------------------------------
 
 #ifdef __cplusplus
@@ -44,6 +45,7 @@ void printHexData(int32_t indent, const void *buf, size_t length,
 #endif
 
 // ---------------------------------------------------------------------------
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_BINDER_DEBUG_H
+#endif // ANDROID_HIDL_BINDER_DEBUG_H

@@ -15,8 +15,8 @@
  */
 
 //
-#ifndef ANDROID_ISERVICE_MANAGER_H
-#define ANDROID_ISERVICE_MANAGER_H
+#ifndef ANDROID_HIDL_ISERVICE_MANAGER_H
+#define ANDROID_HIDL_ISERVICE_MANAGER_H
 
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPermissionController.h>
@@ -24,7 +24,7 @@
 #include <utils/String16.h>
 
 namespace android {
-
+namespace hidl {
 // ----------------------------------------------------------------------
 
 class IServiceManager : public IInterface
@@ -81,7 +81,8 @@ bool checkCallingPermission(const String16& permission,
                             int32_t* outPid, int32_t* outUid);
 bool checkPermission(const String16& permission, pid_t pid, uid_t uid);
 
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_ISERVICE_MANAGER_H
+#endif // ANDROID_HIDL_ISERVICE_MANAGER_H
 

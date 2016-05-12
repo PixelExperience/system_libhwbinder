@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BINDER_H
-#define ANDROID_BINDER_H
+#ifndef ANDROID_HIDL_BINDER_H
+#define ANDROID_HIDL_BINDER_H
 
 #include <atomic>
 #include <stdint.h>
@@ -23,6 +23,7 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
+namespace hidl {
 
 class BBinder : public IBinder
 {
@@ -98,8 +99,9 @@ private:
     std::atomic<int32_t>    mState;
 };
 
+}; // namespace hidl
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_BINDER_H
+#endif // ANDROID_HIDL_BINDER_H

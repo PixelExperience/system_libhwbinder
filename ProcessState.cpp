@@ -30,7 +30,7 @@
 #include <utils/threads.h>
 
 #include <private/binder/binder_module.h>
-#include <private/binder/Static.h>
+#include <hwbinder/Static.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -48,6 +48,7 @@
 // -------------------------------------------------------------------------
 
 namespace android {
+namespace hidl {
 
 class PoolThread : public Thread
 {
@@ -375,4 +376,5 @@ ProcessState::~ProcessState()
     mDriverFD = -1;
 }
         
+}; // namespace hidl
 }; // namespace android

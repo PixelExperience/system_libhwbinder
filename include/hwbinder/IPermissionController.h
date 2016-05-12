@@ -15,14 +15,14 @@
  */
 
 //
-#ifndef ANDROID_IPERMISSION_CONTROLLER_H
-#define ANDROID_IPERMISSION_CONTROLLER_H
+#ifndef ANDROID_HIDL_IPERMISSION_CONTROLLER_H
+#define ANDROID_HIDL_IPERMISSION_CONTROLLER_H
 
 #include <hwbinder/IInterface.h>
 #include <stdlib.h>
 
 namespace android {
-
+namespace hidl {
 // ----------------------------------------------------------------------
 
 class IPermissionController : public IInterface
@@ -56,7 +56,8 @@ public:
 
 // ----------------------------------------------------------------------
 
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_IPERMISSION_CONTROLLER_H
+#endif // ANDROID_HIDL_IPERMISSION_CONTROLLER_H
 

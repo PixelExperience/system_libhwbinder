@@ -15,13 +15,13 @@
  */
 
 //
-#ifndef ANDROID_IRESULT_RECEIVER_H
-#define ANDROID_IRESULT_RECEIVER_H
+#ifndef ANDROID_HIDL_IRESULT_RECEIVER_H
+#define ANDROID_HIDL_IRESULT_RECEIVER_H
 
 #include <hwbinder/IInterface.h>
 
 namespace android {
-
+namespace hidl {
 // ----------------------------------------------------------------------
 
 class IResultReceiver : public IInterface
@@ -49,7 +49,8 @@ public:
 
 // ----------------------------------------------------------------------
 
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_IRESULT_RECEIVER_H
+#endif // ANDROID_HIDL_IRESULT_RECEIVER_H
 

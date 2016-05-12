@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_IPC_THREAD_STATE_H
-#define ANDROID_IPC_THREAD_STATE_H
+#ifndef ANDROID_HIDL_IPC_THREAD_STATE_H
+#define ANDROID_HIDL_IPC_THREAD_STATE_H
 
 #include <utils/Errors.h>
 #include <hwbinder/Parcel.h>
@@ -28,6 +28,7 @@ typedef  int  uid_t;
 
 // ---------------------------------------------------------------------------
 namespace android {
+namespace hidl {
 
 class IPCThreadState
 {
@@ -128,8 +129,9 @@ private:
             int32_t             mLastTransactionBinderFlags;
 };
 
+}; // namespace hidl
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_IPC_THREAD_STATE_H
+#endif // ANDROID_HIDL_IPC_THREAD_STATE_H

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_MEMORY_DEALER_H
-#define ANDROID_MEMORY_DEALER_H
+#ifndef ANDROID_HIDL_MEMORY_DEALER_H
+#define ANDROID_HIDL_MEMORY_DEALER_H
 
 
 #include <stdint.h>
@@ -25,6 +25,7 @@
 #include <hwbinder/MemoryHeapBase.h>
 
 namespace android {
+namespace hidl {
 // ----------------------------------------------------------------------------
 
 class SimpleBestFitAllocator;
@@ -59,6 +60,7 @@ private:
 
 
 // ----------------------------------------------------------------------------
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_MEMORY_DEALER_H
+#endif // ANDROID_HIDL_MEMORY_DEALER_H

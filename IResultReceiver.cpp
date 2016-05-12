@@ -22,9 +22,10 @@
 #include <hwbinder/Parcel.h>
 #include <utils/String8.h>
 
-#include <private/binder/Static.h>
+#include <hwbinder/Static.h>
 
 namespace android {
+namespace hidl {
 
 // ----------------------------------------------------------------------
 
@@ -66,4 +67,5 @@ status_t BnResultReceiver::onTransact(
     }
 }
 
+}; // namespace hidl
 }; // namespace android

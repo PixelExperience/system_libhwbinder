@@ -21,14 +21,14 @@
 #include <utils/Log.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/Parcel.h>
+#include <hwbinder/Static.h>
 #include <utils/String8.h>
 #include <utils/SystemClock.h>
-
-#include <private/binder/Static.h>
 
 #include <unistd.h>
 
 namespace android {
+namespace hidl {
 
 sp<IServiceManager> defaultServiceManager()
 {
@@ -184,4 +184,5 @@ public:
 
 IMPLEMENT_META_INTERFACE(ServiceManager, "android.os.IServiceManager");
 
+}; // namespace hidl
 }; // namespace android

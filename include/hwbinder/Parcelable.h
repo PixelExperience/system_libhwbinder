@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PARCELABLE_H
-#define ANDROID_PARCELABLE_H
+#ifndef ANDROID_HIDL_PARCELABLE_H
+#define ANDROID_HIDL_PARCELABLE_H
 
 #include <vector>
 
@@ -23,6 +23,7 @@
 #include <utils/String16.h>
 
 namespace android {
+namespace hidl {
 
 class Parcel;
 
@@ -46,6 +47,7 @@ public:
     virtual status_t readFromParcel(const Parcel* parcel) = 0;
 };  // class Parcelable
 
+}  // namespace hidl
 }  // namespace android
 
-#endif // ANDROID_PARCELABLE_H
+#endif // ANDROID_HIDL_PARCELABLE_H

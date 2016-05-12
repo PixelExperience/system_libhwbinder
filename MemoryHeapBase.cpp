@@ -32,6 +32,7 @@
 #include <hwbinder/MemoryHeapBase.h>
 
 namespace android {
+namespace hidl {
 
 // ---------------------------------------------------------------------------
 
@@ -175,4 +176,5 @@ uint32_t MemoryHeapBase::getOffset() const {
 }
 
 // ---------------------------------------------------------------------------
+}; // namespace hidl
 }; // namespace android

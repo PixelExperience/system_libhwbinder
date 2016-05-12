@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PARCEL_H
-#define ANDROID_PARCEL_H
+#ifndef ANDROID_HIDL_PARCEL_H
+#define ANDROID_HIDL_PARCEL_H
 
 #include <string>
 #include <vector>
@@ -34,13 +34,14 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
+class String8;
+namespace hidl {
 
 template <typename T> class Flattenable;
 template <typename T> class LightFlattenable;
 class IBinder;
 class IPCThreadState;
 class ProcessState;
-class String8;
 class TextOutput;
 
 class Parcel {
@@ -801,8 +802,9 @@ status_t unflatten_binder(const sp<ProcessState>& proc,
 status_t unflatten_binder(const sp<ProcessState>& proc,
                           const flat_binder_object& flat, wp<IBinder>* out);
 
+}; // namespace hidl
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_PARCEL_H
+#endif // ANDROID_HIDL_PARCEL_H

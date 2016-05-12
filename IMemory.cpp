@@ -36,6 +36,7 @@
 #define VERBOSE   0
 
 namespace android {
+namespace hidl {
 // ---------------------------------------------------------------------------
 
 class HeapCache : public IBinder::DeathRecipient
@@ -488,4 +489,5 @@ void HeapCache::dump_heaps()
 
 
 // ---------------------------------------------------------------------------
+}; // namespace hidl
 }; // namespace android

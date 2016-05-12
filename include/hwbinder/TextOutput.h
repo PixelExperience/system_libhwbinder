@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_TEXTOUTPUT_H
-#define ANDROID_TEXTOUTPUT_H
+#ifndef ANDROID_HIDL_TEXTOUTPUT_H
+#define ANDROID_HIDL_TEXTOUTPUT_H
 
 #include <utils/Errors.h>
 
@@ -24,9 +24,9 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
-
 class String8;
 class String16;
+namespace hidl {
 
 class TextOutput
 {
@@ -190,6 +190,7 @@ inline size_t HexDump::alignment() const { return mAlignment; }
 inline bool HexDump::carrayStyle() const { return mCArrayStyle; }
 
 // ---------------------------------------------------------------------------
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_TEXTOUTPUT_H
+#endif // ANDROID_HIDL_TEXTOUTPUT_H

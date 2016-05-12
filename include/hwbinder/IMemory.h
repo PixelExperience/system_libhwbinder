@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_IMEMORY_H
-#define ANDROID_IMEMORY_H
+#ifndef ANDROID_HIDL_IMEMORY_H
+#define ANDROID_HIDL_IMEMORY_H
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -26,7 +26,7 @@
 #include <hwbinder/IInterface.h>
 
 namespace android {
-
+namespace hidl {
 // ----------------------------------------------------------------------------
 
 class IMemoryHeap : public IInterface
@@ -97,6 +97,7 @@ protected:
 
 // ----------------------------------------------------------------------------
 
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_IMEMORY_H
+#endif // ANDROID_HIDL_IMEMORY_H

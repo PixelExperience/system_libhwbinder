@@ -28,7 +28,7 @@
 #include <utils/threads.h>
 
 #include <private/binder/binder_module.h>
-#include <private/binder/Static.h>
+#include <hwbinder/Static.h>
 
 #include <errno.h>
 #include <inttypes.h>
@@ -63,6 +63,7 @@
 // ---------------------------------------------------------------------------
 
 namespace android {
+namespace hidl {
 
 static const char* getReturnString(size_t idx);
 static const void* printReturnCommand(TextOutput& out, const void* _cmd);
@@ -1214,4 +1215,5 @@ void IPCThreadState::freeBuffer(Parcel* parcel, const uint8_t* data,
     state->mOut.writePointer((uintptr_t)data);
 }
 
+}; // namespace hidl
 }; // namespace android

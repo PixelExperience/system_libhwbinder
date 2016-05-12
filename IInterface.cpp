@@ -19,6 +19,7 @@
 #include <hwbinder/IInterface.h>
 
 namespace android {
+namespace hidl {
 
 // ---------------------------------------------------------------------------
 
@@ -46,22 +47,5 @@ sp<IBinder> IInterface::asBinder(const sp<IInterface>& iface)
 
 // ---------------------------------------------------------------------------
 
+}; // namespace hidl
 }; // namespace android
-
-extern "C" {
-
-void _ZN7android10IInterface8asBinderEv(void *retval, void* self) {
-    ALOGW("deprecated asBinder call, please update your code");
-    //ALOGI("self: %p, retval: %p", self, retval);
-    android::sp<android::IBinder> *ret = new(retval) android::sp<android::IBinder>;
-    *ret = android::IInterface::asBinder((android::IInterface*)self);
-}
-
-void _ZNK7android10IInterface8asBinderEv(void *retval, void *self) {
-    ALOGW("deprecated asBinder call, please update your code");
-    //ALOGI("self: %p, retval: %p", self, retval);
-    android::sp<android::IBinder> *ret = new(retval) android::sp<android::IBinder>;
-    *ret = android::IInterface::asBinder((android::IInterface*)self);
-}
-
-} // extern "C"

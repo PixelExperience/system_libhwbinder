@@ -47,7 +47,7 @@
 #include <utils/String16.h>
 
 #include <private/binder/binder_module.h>
-#include <private/binder/Static.h>
+#include <hwbinder/Static.h>
 
 #ifndef INT32_MAX
 #define INT32_MAX ((int32_t)(2147483647))
@@ -84,6 +84,7 @@ struct small_flat_data
 };
 
 namespace android {
+namespace hidl {
 
 static pthread_mutex_t gParcelGlobalAllocSizeLock = PTHREAD_MUTEX_INITIALIZER;
 static size_t gParcelGlobalAllocSize = 0;
@@ -2626,4 +2627,5 @@ void Parcel::Blob::clear() {
     mMutable = false;
 }
 
+}; // namespace hidl
 }; // namespace android

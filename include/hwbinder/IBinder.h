@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_IBINDER_H
-#define ANDROID_IBINDER_H
+#ifndef ANDROID_HIDL_IBINDER_H
+#define ANDROID_HIDL_IBINDER_H
 
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
@@ -32,6 +32,7 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
+namespace hidl {
 
 class BBinder;
 class BpBinder;
@@ -154,8 +155,9 @@ protected:
 private:
 };
 
+}; // namespace hidl
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_IBINDER_H
+#endif // ANDROID_HIDL_IBINDER_H

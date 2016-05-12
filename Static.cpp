@@ -17,13 +17,14 @@
 // All static variables go here, to control initialization and
 // destruction order in the library.
 
-#include <private/binder/Static.h>
+#include <hwbinder/Static.h>
 
 #include <hwbinder/BufferedTextOutput.h>
 #include <hwbinder/IPCThreadState.h>
 #include <utils/Log.h>
 
 namespace android {
+namespace hidl {
 
 // ------------ Text output streams
 
@@ -96,4 +97,5 @@ Mutex gDefaultServiceManagerLock;
 sp<IServiceManager> gDefaultServiceManager;
 sp<IPermissionController> gPermissionController;
 
+}   // namespace hidl
 }   // namespace android

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PERSISTABLE_BUNDLE_H
-#define ANDROID_PERSISTABLE_BUNDLE_H
+#ifndef ANDROID_HIDL_PERSISTABLE_BUNDLE_H
+#define ANDROID_HIDL_PERSISTABLE_BUNDLE_H
 
 #include <map>
 #include <set>
@@ -26,7 +26,7 @@
 #include <utils/StrongPointer.h>
 
 namespace android {
-
+namespace hidl {
 namespace os {
 
 /*
@@ -126,7 +126,7 @@ private:
 };
 
 }  // namespace os
-
+}  // namespace hidl
 }  // namespace android
 
 #endif  // ANDROID_PERSISTABLE_BUNDLE_H

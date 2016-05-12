@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_MEMORY_BASE_H
-#define ANDROID_MEMORY_BASE_H
+#ifndef ANDROID_HIDL_MEMORY_BASE_H
+#define ANDROID_HIDL_MEMORY_BASE_H
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -24,7 +24,7 @@
 
 
 namespace android {
-
+namespace hidl {
 // ---------------------------------------------------------------------------
 
 class MemoryBase : public BnMemory 
@@ -46,6 +46,7 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_MEMORY_BASE_H
+#endif // ANDROID_HIDL_MEMORY_BASE_H

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PROCESS_STATE_H
-#define ANDROID_PROCESS_STATE_H
+#ifndef ANDROID_HIDL_PROCESS_STATE_H
+#define ANDROID_HIDL_PROCESS_STATE_H
 
 #include <hwbinder/IBinder.h>
 #include <utils/KeyedVector.h>
@@ -28,6 +28,7 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
+namespace hidl {
 
 class IPCThreadState;
 
@@ -111,8 +112,9 @@ private:
     volatile int32_t            mThreadPoolSeq;
 };
     
+}; // namespace hidl
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_PROCESS_STATE_H
+#endif // ANDROID_HIDL_PROCESS_STATE_H

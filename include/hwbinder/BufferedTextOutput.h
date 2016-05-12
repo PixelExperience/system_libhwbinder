@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BUFFEREDTEXTOUTPUT_H
-#define ANDROID_BUFFEREDTEXTOUTPUT_H
+#ifndef ANDROID_HIDL_BUFFEREDTEXTOUTPUT_H
+#define ANDROID_HIDL_BUFFEREDTEXTOUTPUT_H
 
 #include <hwbinder/TextOutput.h>
 #include <utils/threads.h>
@@ -23,6 +23,7 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
+namespace hidl {
 
 class BufferedTextOutput : public TextOutput
 {
@@ -62,6 +63,7 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+}; // namespace hidl
 }; // namespace android
 
-#endif // ANDROID_BUFFEREDTEXTOUTPUT_H
+#endif // ANDROID_HIDL_BUFFEREDTEXTOUTPUT_H

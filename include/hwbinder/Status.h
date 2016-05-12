@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BINDER_STATUS_H
-#define ANDROID_BINDER_STATUS_H
+#ifndef ANDROID_HIDL_BINDER_STATUS_H
+#define ANDROID_HIDL_BINDER_STATUS_H
 
 #include <cstdint>
 #include <sstream>
@@ -24,6 +24,7 @@
 #include <utils/String8.h>
 
 namespace android {
+namespace hidl {
 namespace binder {
 
 // An object similar in function to a status_t except that it understands
@@ -146,6 +147,7 @@ private:
 std::stringstream& operator<< (std::stringstream& stream, const Status& s);
 
 }  // namespace binder
+}  // namespace hidl
 }  // namespace android
 
-#endif // ANDROID_BINDER_STATUS_H
+#endif // ANDROID_HIDL_BINDER_STATUS_H

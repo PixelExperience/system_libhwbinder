@@ -39,6 +39,7 @@
 #include <sys/file.h>
 
 namespace android {
+namespace hidl {
 // ----------------------------------------------------------------------------
 
 /*
@@ -473,4 +474,5 @@ void SimpleBestFitAllocator::dump_l(String8& result,
 }
 
 
+}; // namespace hidl
 }; // namespace android
