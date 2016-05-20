@@ -17,6 +17,8 @@
 #ifndef ANDROID_HIDL_IBINDER_H
 #define ANDROID_HIDL_IBINDER_H
 
+#include <functional>
+
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
 #include <utils/String16.h>
@@ -49,6 +51,8 @@ class Parcel;
 class IBinder : public virtual RefBase
 {
 public:
+    using TransactCallback = std::function<void(Parcel&)>;
+
     enum {
         FIRST_CALL_TRANSACTION  = 0x00000001,
         LAST_CALL_TRANSACTION   = 0x00ffffff,
@@ -85,7 +89,8 @@ public:
     virtual status_t        transact(   uint32_t code,
                                         const Parcel& data,
                                         Parcel* reply,
-                                        uint32_t flags = 0) = 0;
+                                        uint32_t flags = 0,
+                                        TransactCallback callback = nullptr) = 0;
 
     class DeathRecipient : public virtual RefBase
     {

@@ -158,7 +158,7 @@ status_t BpBinder::dump(int fd, const Vector<String16>& args)
 }
 
 status_t BpBinder::transact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
+    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags, TransactCallback /*callback*/)
 {
     // Once a binder has died, it will never come back to life.
     if (mAlive) {

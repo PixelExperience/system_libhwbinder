@@ -95,7 +95,7 @@ const String16& BBinder::getInterfaceDescriptor() const
 }
 
 status_t BBinder::transact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
+    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags, TransactCallback callback)
 {
     data.setDataPosition(0);
 
@@ -103,14 +103,20 @@ status_t BBinder::transact(
     switch (code) {
         case PING_TRANSACTION:
             reply->writeInt32(pingBinder());
+            reply->setDataPosition(0);
+            if (callback != NULL) {
+                callback(*reply);
+            }
             break;
         default:
-            err = onTransact(code, data, reply, flags);
+            err = onTransact(code, data, reply, flags,
+                    [&](auto &replyParcel) {
+                        replyParcel.setDataPosition(0);
+                        if (callback != NULL) {
+                            callback(replyParcel);
+                        }
+                    });
             break;
-    }
-
-    if (reply != NULL) {
-        reply->setDataPosition(0);
     }
 
     return err;
@@ -188,11 +194,14 @@ BBinder::~BBinder()
 
 
 status_t BBinder::onTransact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t /*flags*/)
+    uint32_t code, const Parcel& data, Parcel* reply, uint32_t /*flags*/, TransactCallback callback)
 {
     switch (code) {
         case INTERFACE_TRANSACTION:
             reply->writeString16(getInterfaceDescriptor());
+            if (callback != NULL) {
+                callback(*reply);
+            }
             return NO_ERROR;
 
         case DUMP_TRANSACTION: {

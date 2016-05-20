@@ -1094,6 +1094,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
 
             Parcel reply;
             status_t error;
+            bool reply_sent = false;
             IF_LOG_TRANSACTIONS() {
                 TextOutput::Bundle _b(alog);
                 alog << "BR_TRANSACTION thr " << (void*)pthread_self()
@@ -1105,32 +1106,59 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                     << ", offsets addr="
                     << reinterpret_cast<const size_t*>(tr.data.ptr.offsets) << endl;
             }
+
+            auto reply_callback = [&] (auto &replyParcel) {
+                if (reply_sent) {
+                    // Reply was sent earlier, ignore it.
+                    ALOGE("Dropping binder reply, it was sent already.");
+                    return;
+                }
+                reply_sent = true;
+                if ((tr.flags & TF_ONE_WAY) == 0) {
+                    replyParcel.setError(NO_ERROR);
+                    sendReply(replyParcel, 0);
+                } else {
+                    ALOGE("Not sending reply in one-way transaction");
+                }
+            };
+
             if (tr.target.ptr) {
                 // We only have a weak reference on the target object, so we must first try to
                 // safely acquire a strong reference before doing anything else with it.
                 if (reinterpret_cast<RefBase::weakref_type*>(
                         tr.target.ptr)->attemptIncStrong(this)) {
                     error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
-                            &reply, tr.flags);
+                            &reply, tr.flags, reply_callback);
                     reinterpret_cast<BBinder*>(tr.cookie)->decStrong(this);
                 } else {
                     error = UNKNOWN_TRANSACTION;
                 }
 
             } else {
-                error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
+                error = the_context_object->transact(tr.code, buffer, &reply, tr.flags,
+                        reply_callback);
+            }
+
+            if ((tr.flags & TF_ONE_WAY) == 0) {
+                if (!reply_sent) {
+                    // Should have been a reply but there wasn't, so there
+                    // must have been an error instead.
+                    reply.setError(error);
+                    sendReply(reply, 0);
+                } else {
+                    if (error != NO_ERROR) {
+                        ALOGE("transact() returned error after sending reply.");
+                    } else {
+                        // Ok, reply sent and transact didn't return an error.
+                    }
+                }
+            } else {
+                // One-way transaction, don't care about return value or reply.
             }
 
             //ALOGI("<<<< TRANSACT from pid %d restore pid %d uid %d\n",
             //     mCallingPid, origPid, origUid);
-            
-            if ((tr.flags & TF_ONE_WAY) == 0) {
-                LOG_ONEWAY("Sending reply to %d!", mCallingPid);
-                if (error < NO_ERROR) reply.setError(error);
-                sendReply(reply, 0);
-            } else {
-                LOG_ONEWAY("NOT sending reply to %d!", mCallingPid);
-            }
+
             
             mCallingPid = origPid;
             mCallingUid = origUid;
