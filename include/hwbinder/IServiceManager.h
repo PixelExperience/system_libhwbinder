@@ -19,7 +19,6 @@
 #define ANDROID_HIDL_ISERVICE_MANAGER_H
 
 #include <hwbinder/IInterface.h>
-#include <hwbinder/IPermissionController.h>
 #include <utils/Vector.h>
 #include <utils/String16.h>
 

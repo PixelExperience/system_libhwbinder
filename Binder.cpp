@@ -20,7 +20,6 @@
 #include <utils/misc.h>
 #include <hwbinder/BpBinder.h>
 #include <hwbinder/IInterface.h>
-#include <hwbinder/IResultReceiver.h>
 #include <hwbinder/Parcel.h>
 
 #include <stdio.h>
@@ -59,24 +58,6 @@ BpBinder* IBinder::remoteBinder()
 bool IBinder::checkSubclass(const void* /*subclassID*/) const
 {
     return false;
-}
-
-
-status_t IBinder::shellCommand(const sp<IBinder>& target, int in, int out, int err,
-    Vector<String16>& args, const sp<IResultReceiver>& resultReceiver)
-{
-    Parcel send;
-    Parcel reply;
-    send.writeFileDescriptor(in);
-    send.writeFileDescriptor(out);
-    send.writeFileDescriptor(err);
-    const size_t numArgs = args.size();
-    send.writeInt32(numArgs);
-    for (size_t i = 0; i < numArgs; i++) {
-        send.writeString16(args[i]);
-    }
-    send.writeStrongBinder(resultReceiver != NULL ? IInterface::asBinder(resultReceiver) : NULL);
-    return target->transact(SHELL_COMMAND_TRANSACTION, send, &reply);
 }
 
 // ---------------------------------------------------------------------------
@@ -222,25 +203,6 @@ status_t BBinder::onTransact(
                args.add(data.readString16());
             }
             return dump(fd, args);
-        }
-
-        case SHELL_COMMAND_TRANSACTION: {
-            int in = data.readFileDescriptor();
-            int out = data.readFileDescriptor();
-            int err = data.readFileDescriptor();
-            int argc = data.readInt32();
-            Vector<String16> args;
-            for (int i = 0; i < argc && data.dataAvail() > 0; i++) {
-               args.add(data.readString16());
-            }
-            sp<IResultReceiver> resultReceiver = IResultReceiver::asInterface(
-                    data.readStrongBinder());
-
-            // XXX can't add virtuals until binaries are updated.
-            //return shellCommand(in, out, err, args, resultReceiver);
-            if (resultReceiver != NULL) {
-                resultReceiver->send(INVALID_OPERATION);
-            }
         }
 
         case SYSPROPS_TRANSACTION: {

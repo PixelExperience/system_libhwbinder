@@ -95,7 +95,6 @@ static LibBinderIPCtStatics gIPCStatics;
 
 Mutex gDefaultServiceManagerLock;
 sp<IServiceManager> gDefaultServiceManager;
-sp<IPermissionController> gPermissionController;
 
 }   // namespace hidl
 }   // namespace android

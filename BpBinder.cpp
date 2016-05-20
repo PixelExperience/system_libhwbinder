@@ -20,7 +20,6 @@
 #include <hwbinder/BpBinder.h>
 
 #include <hwbinder/IPCThreadState.h>
-#include <hwbinder/IResultReceiver.h>
 #include <utils/Log.h>
 
 #include <stdio.h>
