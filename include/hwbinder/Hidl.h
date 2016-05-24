@@ -18,10 +18,14 @@
 #ifndef ANDROID_HIDL_HIDL_H
 #define ANDROID_HIDL_HIDL_H
 
+#include <cutils/ashmem.h>
+#include <sys/mman.h>
 
 namespace android {
 namespace hidl {
 // ----------------------------------------------------------------------
+// Version functions
+// TODO probably nicer to make this a struct
 typedef uint32_t hidl_version;
 
 inline android::hidl::hidl_version make_hidl_version(uint16_t major, uint16_t minor) {
@@ -37,6 +41,41 @@ inline uint16_t get_minor_hidl_version(android::hidl::hidl_version version) {
 }
 
 // ----------------------------------------------------------------------
+
+// ----------------------------------------------------------------------
+// Helper functions for ref<>
+template <typename T>
+int gen_ref(int *fd, T** ptr) {
+    // Setup an ashmem region for the object
+    // TODO is sizeof() will only work if we're dealing with the correct
+    // object type (eg not a base class).
+    size_t len = sizeof(T);
+    *fd = ashmem_create_region("HIDL Ref", len);
+    if (fd < 0) return NO_MEMORY;
+
+    int result = ashmem_set_prot_region(*fd, PROT_READ | PROT_WRITE);
+    if (result < 0) {
+       return result;
+    }
+    void* mapped_ptr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, *fd, 0);
+    if (mapped_ptr == MAP_FAILED) {
+        return -1;
+    } else {
+        *ptr = (T*) mapped_ptr;
+        return 0;
+    }
+}
+
+template <typename T>
+int from_ref(int fd, T** ptr) {
+    size_t len = sizeof(T);
+    void* mapped_ptr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (ptr == MAP_FAILED) return NO_MEMORY;
+
+    *ptr = (T*) mapped_ptr;
+
+    return 0;
+}
 
 }; // namespace hidl
 }; // namespace android
