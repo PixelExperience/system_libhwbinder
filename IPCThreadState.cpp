@@ -586,7 +586,7 @@ status_t IPCThreadState::transact(int32_t handle,
     if (err == NO_ERROR) {
         LOG_ONEWAY(">>>> SEND from pid %d uid %d %s", getpid(), getuid(),
             (flags & TF_ONE_WAY) == 0 ? "READ REPLY" : "ONE WAY");
-        err = writeTransactionData(BC_TRANSACTION, flags, handle, code, data, NULL);
+        err = writeTransactionData(BC_TRANSACTION_SG, flags, handle, code, data, NULL);
     }
     
     if (err != NO_ERROR) {
@@ -726,7 +726,7 @@ status_t IPCThreadState::sendReply(const Parcel& reply, uint32_t flags)
 {
     status_t err;
     status_t statusBuffer;
-    err = writeTransactionData(BC_REPLY, flags, -1, 0, reply, &statusBuffer);
+    err = writeTransactionData(BC_REPLY_SG, flags, -1, 0, reply, &statusBuffer);
     if (err < NO_ERROR) return err;
     
     return waitForResponse(NULL, NULL);
@@ -943,6 +943,7 @@ status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
         tr.data.ptr.buffer = data.ipcData();
         tr.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t);
         tr.data.ptr.offsets = data.ipcObjects();
+        tr.buffers_size = data.ipcBufferSize();
     } else if (statusBuffer) {
         tr.flags |= TF_STATUS_CODE;
         *statusBuffer = err;
@@ -950,6 +951,7 @@ status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
         tr.data.ptr.buffer = reinterpret_cast<uintptr_t>(statusBuffer);
         tr.offsets_size = 0;
         tr.data.ptr.offsets = 0;
+        tr.buffers_size = 0;
     } else {
         return (mLastError = err);
     }

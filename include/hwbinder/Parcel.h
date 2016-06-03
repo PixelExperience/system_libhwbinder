@@ -210,7 +210,10 @@ public:
     status_t            writeDupImmutableBlobFileDescriptor(int fd);
 
     status_t            writeObject(const flat_binder_object& val, bool nullMetaData);
+    status_t            writeBufferObject(const buffer_object& val);
 
+    status_t            writeBuffer(void *buffer, size_t length, uint64_t *handle,
+                            uint64_t parent_handle = UINT64_MAX, uint32_t parent_offset = 0);
     // Like Parcel.java's writeNoException().  Just writes a zero int32.
     // Currently the native implementation doesn't do any of the StrictMode
     // stack gathering and serialization that the Java implementation does.
@@ -340,6 +343,7 @@ public:
 
     const flat_binder_object* readObject(bool nullMetaData) const;
 
+    const void*         readBuffer() const;
     // Explicitly close all file descriptors in the parcel.
     void                closeFileDescriptors();
 
@@ -357,6 +361,7 @@ private:
     size_t              ipcDataSize() const;
     uintptr_t           ipcObjects() const;
     size_t              ipcObjectsCount() const;
+    size_t              ipcBufferSize() const;
     void                ipcSetDataReference(const uint8_t* data, size_t dataSize,
                                             const binder_size_t* objects, size_t objectsCount,
                                             release_func relFunc, void* relCookie);
