@@ -168,6 +168,10 @@ void acquire_object(const sp<ProcessState>& proc,
             }
             return;
         }
+        case BINDER_TYPE_PTR:
+        case BINDER_TYPE_FDA: {
+            return;
+        }
     }
 
     ALOGD("Invalid object type 0x%08x", obj.type);
@@ -221,6 +225,14 @@ static void release_object(const sp<ProcessState>& proc,
 
                 close(obj.handle);
             }
+            return;
+        }
+        case BINDER_TYPE_PTR: {
+            // The relevant buffer is part of the transaction buffer and will be freed that way
+            return;
+        }
+        case BINDER_TYPE_FDA: {
+            // TODO free fdas
             return;
         }
     }
@@ -1353,18 +1365,18 @@ restart_write:
     goto restart_write;
 }
 
-status_t Parcel::writeBufferObject(const buffer_object& val)
+status_t Parcel::writeBufferObject(const binder_buffer_object& val)
 {
     const bool enoughData = (mDataPos+sizeof(val)) <= mDataCapacity;
     const bool enoughObjects = mObjectsSize < mObjectsCapacity;
     if (enoughData && enoughObjects) {
 restart_write:
-        *reinterpret_cast<buffer_object*>(mData+mDataPos) = val;
+        *reinterpret_cast<binder_buffer_object*>(mData+mDataPos) = val;
 
         mObjects[mObjectsSize] = mDataPos;
         mObjectsSize++;
 
-        return finishWrite(sizeof(buffer_object));
+        return finishWrite(sizeof(binder_buffer_object));
     }
 
     if (!enoughData) {
@@ -1383,24 +1395,111 @@ restart_write:
     goto restart_write;
 }
 
-status_t Parcel::writeBuffer(void *buffer, size_t length, uint64_t *handle,
-                             uint64_t parent_handle, uint32_t parent_offset)
+status_t Parcel::writeEmbeddedBuffer(void *buffer, size_t length, uint64_t *handle,
+                             uint64_t parent_buffer_handle, uint64_t parent_offset)
 {
-    buffer_object obj;
+    binder_buffer_object obj;
     obj.type = BINDER_TYPE_PTR;
     obj.buffer = reinterpret_cast<uintptr_t>(buffer);
     obj.length = length;
+    obj.flags = BINDER_BUFFER_HAS_PARENT;
     if (handle != nullptr) {
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
     }
-    if (parent_handle != UINT64_MAX) {
-        // TODO verify parent
-        obj.parent = parent_handle;
-        obj.parent_offset = parent_offset; // TODO not safe on 32-bit
+    if (parent_buffer_handle < mObjectsSize) {
+        // TODO verify parent handle, parent itself
+        obj.parent = parent_buffer_handle;
+        obj.parent_offset = parent_offset; // TODO not safe on 32-bit binder, verify
     }
     // TODO we'll want to clean up object handling in general
     return writeBufferObject(obj);
+}
+
+status_t Parcel::writeBuffer(void *buffer, size_t length, uint64_t *handle)
+{
+    binder_buffer_object obj;
+    obj.type = BINDER_TYPE_PTR;
+    obj.buffer = reinterpret_cast<uintptr_t>(buffer);
+    obj.length = length;
+    obj.flags = 0;
+    if (handle != nullptr) {
+        // We use an index into mObjects as a handle
+        *handle = mObjectsSize;
+    }
+    // TODO we'll want to clean up object handling in general
+    return writeBufferObject(obj);
+}
+
+status_t Parcel::writeFileDescriptorArrayObject(const binder_fd_array_object& val)
+{
+    const bool enoughData = (mDataPos+sizeof(val)) <= mDataCapacity;
+    const bool enoughObjects = mObjectsSize < mObjectsCapacity;
+    if (enoughData && enoughObjects) {
+restart_write:
+        *reinterpret_cast<binder_fd_array_object*>(mData+mDataPos) = val;
+
+        mObjects[mObjectsSize] = mDataPos;
+        mObjectsSize++;
+
+        return finishWrite(sizeof(binder_fd_array_object));
+    }
+
+    if (!enoughData) {
+        const status_t err = growData(sizeof(val));
+        if (err != NO_ERROR) return err;
+    }
+    if (!enoughObjects) {
+        size_t newSize = ((mObjectsSize+2)*3)/2;
+        if (newSize < mObjectsSize) return NO_MEMORY;   // overflow
+        binder_size_t* objects = (binder_size_t*)realloc(mObjects, newSize*sizeof(binder_size_t));
+        if (objects == NULL) return NO_MEMORY;
+        mObjects = objects;
+        mObjectsCapacity = newSize;
+    }
+
+    goto restart_write;
+}
+
+status_t Parcel::writeNativeHandleNoDup(const native_handle_t *handle)
+{
+    struct binder_fd_array_object fd_array;
+    uint64_t buffer_handle;
+    // A native handle consists of a buffer with file desctiptors inside
+    size_t native_handle_size = sizeof(native_handle_t) +
+        handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
+    status_t status = writeBuffer((void*) handle, native_handle_size, &buffer_handle);
+    if (status != OK) {
+        return status;
+    }
+    fd_array.type = BINDER_TYPE_FDA;
+    fd_array.flags = 0;
+    fd_array.num_fds = handle->numFds;
+    fd_array.parent = buffer_handle;
+    fd_array.parent_offset = offsetof(native_handle_t, data);
+    return (writeFileDescriptorArrayObject(fd_array));
+}
+
+status_t Parcel::writeEmbeddedNativeHandle(const native_handle_t *handle,
+                                           uint64_t parent_buffer_handle,
+                                           uint64_t parent_offset)
+{
+    struct binder_fd_array_object fd_array;
+    uint64_t buffer_handle;
+    // A native handle consists of a buffer with file desctiptors inside
+    size_t native_handle_size = sizeof(native_handle_t) +
+        handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
+    status_t status = writeEmbeddedBuffer((void*) handle, native_handle_size, &buffer_handle,
+            parent_buffer_handle, parent_offset);
+    if (status != OK) {
+        return status;
+    }
+    fd_array.type = BINDER_TYPE_FDA;
+    fd_array.flags = 0;
+    fd_array.num_fds = handle->numFds;
+    fd_array.parent = buffer_handle;
+    fd_array.parent_offset = offsetof(native_handle_t, data);
+    return (writeFileDescriptorArrayObject(fd_array));
 }
 
 status_t Parcel::writeNoException()
@@ -2038,7 +2137,6 @@ native_handle* Parcel::readNativeHandle() const
     return h;
 }
 
-
 int Parcel::readFileDescriptor() const
 {
     const flat_binder_object* flat = readObject(true);
@@ -2156,7 +2254,25 @@ const flat_binder_object* Parcel::readObject(bool nullMetaData) const
     if ((DPOS+sizeof(flat_binder_object)) <= mDataSize) {
         const flat_binder_object* obj
                 = reinterpret_cast<const flat_binder_object*>(mData+DPOS);
-        mDataPos = DPOS + sizeof(flat_binder_object);
+        // TODO need to make sure current type still fits in remaining data buffer
+        switch (obj->type) {
+            case BINDER_TYPE_WEAK_BINDER:
+            case BINDER_TYPE_WEAK_HANDLE:
+            case BINDER_TYPE_BINDER:
+            case BINDER_TYPE_HANDLE:
+            case BINDER_TYPE_FD: {
+                mDataPos = DPOS + sizeof(flat_binder_object);
+                break;
+            }
+            case BINDER_TYPE_PTR: {
+                mDataPos = DPOS + sizeof(binder_buffer_object);
+                break;
+            }
+            case BINDER_TYPE_FDA: {
+                mDataPos = DPOS + sizeof(binder_fd_array_object);
+                break;
+            }
+        }
         if (!nullMetaData && (obj->cookie == 0 && obj->binder == 0)) {
             // When transferring a NULL object, we don't write it into
             // the object list, so we don't want to check for it when
@@ -2211,13 +2327,45 @@ const flat_binder_object* Parcel::readObject(bool nullMetaData) const
     return NULL;
 }
 
-const void* Parcel::readBuffer() const
+const void* Parcel::readBuffer(uint64_t *buffer_handle) const
 {
-    const buffer_object* buffer_obj = (buffer_object*) readObject(true);
+    const binder_buffer_object* buffer_obj = (binder_buffer_object*) readObject(true);
     // TODO we'll want to do a lot more verification, either here, or
     // in a new verify method.
     if (buffer_obj && buffer_obj->type == BINDER_TYPE_PTR) {
+        if (buffer_handle != nullptr) {
+            *buffer_handle = 0; // TODO fix this
+        }
         return (void*)buffer_obj->buffer;
+    }
+
+    return nullptr;
+}
+
+const void* Parcel::readEmbeddedBuffer(uint64_t *buffer_handle, uint64_t /*parent_buffer_handle*/,
+                                       uint64_t /*parent_offset*/) const
+{
+    // TODO verify parent and offset
+    return (readBuffer(buffer_handle));
+}
+
+const native_handle_t* Parcel::readEmbeddedNativeHandle(uint64_t /*parent_buffer_handle*/,
+                                                        uint64_t /*parent_offset*/) const
+{
+    // TODO verify parent and offset, as well as fda object
+    return ((const native_handle_t*) readBuffer(nullptr));
+}
+
+const native_handle_t* Parcel::readNativeHandleNoDup() const
+{
+    native_handle_t *nat_handle = (native_handle_t*) readBuffer(nullptr);
+    if (nat_handle == nullptr) {
+        return nat_handle;
+    }
+    const binder_fd_array_object* fd_array_obj = (binder_fd_array_object*) readObject(true);
+    if (fd_array_obj && fd_array_obj->type == BINDER_TYPE_FDA) {
+        // TODO verification
+        return nat_handle;
     }
 
     return nullptr;
@@ -2267,8 +2415,8 @@ size_t Parcel::ipcBufferSize() const
     size_t i = mObjectsSize;
     while (i > 0) {
         i--;
-        const buffer_object* buffer
-            = reinterpret_cast<buffer_object*>(mData+mObjects[i]);
+        const binder_buffer_object* buffer
+            = reinterpret_cast<binder_buffer_object*>(mData+mObjects[i]);
         if (buffer->type == BINDER_TYPE_PTR) {
             dataSize += buffer->length;
         }

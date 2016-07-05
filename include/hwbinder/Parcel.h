@@ -27,7 +27,47 @@
 #include <utils/String16.h>
 #include <utils/Vector.h>
 #include <utils/Flattenable.h>
+
 #include <linux/binder.h>
+
+enum {
+	BINDER_TYPE_PTR		= B_PACK_CHARS('p', 't', '*', B_TYPE_LARGE),
+	BINDER_TYPE_FDA		= B_PACK_CHARS('f', 'd', 'a', B_TYPE_LARGE),
+};
+
+struct binder_transaction_data_sg {
+    binder_transaction_data    tr; /* regular transaction data */
+    binder_size_t              buffers_size; /* number of bytes of SG buffers */
+};
+
+struct binder_buffer_object {
+	__u32 type; /* MUST be BINDER_TYPE_PTR */
+	__u32 flags;
+
+	binder_uintptr_t	buffer; /* The buffer to copy */
+	binder_size_t		length; /* Length of the buffer to copy */
+	binder_size_t		parent; /* index of parent in objects */
+	binder_size_t		parent_offset; /* offset of pointer in parent */
+};
+
+struct binder_fd_array_object {
+	__u32 type; /* MUST be BINDER_TYPE_FDA */
+	__u32 flags;
+
+	binder_size_t       num_fds;
+	binder_size_t		parent; /* index of parent in objects */
+	binder_size_t		parent_offset; /* offset of pointer in parent */
+};
+
+enum {
+	BINDER_BUFFER_HAS_PARENT = 0x01,
+};
+
+enum {
+	BC_TRANSACTION_SG = _IOW('c', 17, struct binder_transaction_data_sg),
+	BC_REPLY_SG = _IOW('c', 18, struct binder_transaction_data_sg),
+};
+
 
 #include <hwbinder/IInterface.h>
 #include <hwbinder/Parcelable.h>
@@ -210,10 +250,16 @@ public:
     status_t            writeDupImmutableBlobFileDescriptor(int fd);
 
     status_t            writeObject(const flat_binder_object& val, bool nullMetaData);
-    status_t            writeBufferObject(const buffer_object& val);
+    status_t            writeBufferObject(const binder_buffer_object& val);
+    status_t            writeFileDescriptorArrayObject(const binder_fd_array_object& val);
 
-    status_t            writeBuffer(void *buffer, size_t length, uint64_t *handle,
-                            uint64_t parent_handle = UINT64_MAX, uint32_t parent_offset = 0);
+    status_t            writeBuffer(void *buffer, size_t length, uint64_t *handle);
+    status_t            writeEmbeddedBuffer(void *buffer, size_t length, uint64_t *handle,
+                            uint64_t parent_buffer_handle, uint64_t parent_offset);
+
+    status_t            writeEmbeddedNativeHandle(const native_handle_t *handle,
+                            uint64_t parent_buffer_handle, uint64_t parent_offset);
+    status_t            writeNativeHandleNoDup(const native_handle* handle);
     // Like Parcel.java's writeNoException().  Just writes a zero int32.
     // Currently the native implementation doesn't do any of the StrictMode
     // stack gathering and serialization that the Java implementation does.
@@ -343,7 +389,12 @@ public:
 
     const flat_binder_object* readObject(bool nullMetaData) const;
 
-    const void*         readBuffer() const;
+    const void*         readBuffer(uint64_t *buffer_handle) const;
+    const void*         readEmbeddedBuffer(uint64_t *buffer_handle,
+                           uint64_t parent_buffer_handle, uint64_t parent_offset) const;
+    const native_handle_t* readEmbeddedNativeHandle(uint64_t parent_buffer_handle,
+                           uint64_t parent_offset) const;
+    const native_handle_t* readNativeHandleNoDup() const;
     // Explicitly close all file descriptors in the parcel.
     void                closeFileDescriptors();
 

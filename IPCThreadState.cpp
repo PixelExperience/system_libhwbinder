@@ -927,37 +927,36 @@ status_t IPCThreadState::talkWithDriver(bool doReceive)
 status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
     int32_t handle, uint32_t code, const Parcel& data, status_t* statusBuffer)
 {
-    binder_transaction_data tr;
-
-    tr.target.ptr = 0; /* Don't pass uninitialized stack data to a remote process */
-    tr.target.handle = handle;
-    tr.code = code;
-    tr.flags = binderFlags;
-    tr.cookie = 0;
-    tr.sender_pid = 0;
-    tr.sender_euid = 0;
+    binder_transaction_data_sg tr_sg;
+    tr_sg.tr.target.ptr = 0; /* Don't pass uninitialized stack data to a remote process */
+    tr_sg.tr.target.handle = handle;
+    tr_sg.tr.code = code;
+    tr_sg.tr.flags = binderFlags;
+    tr_sg.tr.cookie = 0;
+    tr_sg.tr.sender_pid = 0;
+    tr_sg.tr.sender_euid = 0;
     
     const status_t err = data.errorCheck();
     if (err == NO_ERROR) {
-        tr.data_size = data.ipcDataSize();
-        tr.data.ptr.buffer = data.ipcData();
-        tr.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t);
-        tr.data.ptr.offsets = data.ipcObjects();
-        tr.buffers_size = data.ipcBufferSize();
+        tr_sg.tr.data_size = data.ipcDataSize();
+        tr_sg.tr.data.ptr.buffer = data.ipcData();
+        tr_sg.tr.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t);
+        tr_sg.tr.data.ptr.offsets = data.ipcObjects();
+        tr_sg.buffers_size = data.ipcBufferSize();
     } else if (statusBuffer) {
-        tr.flags |= TF_STATUS_CODE;
+        tr_sg.tr.flags |= TF_STATUS_CODE;
         *statusBuffer = err;
-        tr.data_size = sizeof(status_t);
-        tr.data.ptr.buffer = reinterpret_cast<uintptr_t>(statusBuffer);
-        tr.offsets_size = 0;
-        tr.data.ptr.offsets = 0;
-        tr.buffers_size = 0;
+        tr_sg.tr.data_size = sizeof(status_t);
+        tr_sg.tr.data.ptr.buffer = reinterpret_cast<uintptr_t>(statusBuffer);
+        tr_sg.tr.offsets_size = 0;
+        tr_sg.tr.data.ptr.offsets = 0;
+        tr_sg.buffers_size = 0;
     } else {
         return (mLastError = err);
     }
     
     mOut.writeInt32(cmd);
-    mOut.write(&tr, sizeof(tr));
+    mOut.write(&tr_sg, sizeof(tr_sg));
     
     return NO_ERROR;
 }
