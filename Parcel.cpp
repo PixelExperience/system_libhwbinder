@@ -2469,9 +2469,18 @@ void Parcel::print(TextOutput& to, uint32_t /*flags*/) const
         for (size_t i=0; i<N; i++) {
             const flat_binder_object* flat
                 = reinterpret_cast<const flat_binder_object*>(DATA+OBJS[i]);
-            to << endl << "Object #" << i << " @ " << (void*)OBJS[i] << ": "
-                << TypeCode(flat->type & 0x7f7f7f00)
-                << " = " << flat->binder;
+            if (flat->type == BINDER_TYPE_PTR) {
+                const binder_buffer_object* buffer
+                    = reinterpret_cast<const binder_buffer_object*>(DATA+OBJS[i]);
+                HexDump bufferDump((const uint8_t*)buffer->buffer, (size_t)buffer->length);
+                bufferDump.setSingleLineCutoff(0);
+                to << endl << "Object #" << i << " @ " << (void*)OBJS[i] << " (buffer size " << buffer->length << "):";
+                to << indent << bufferDump << dedent;
+            } else {
+                to << endl << "Object #" << i << " @ " << (void*)OBJS[i] << ": "
+                    << TypeCode(flat->type & 0x7f7f7f00)
+                    << " = " << flat->binder;
+            }
         }
     } else {
         to << "NULL";

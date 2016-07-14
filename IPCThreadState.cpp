@@ -577,7 +577,6 @@ status_t IPCThreadState::transact(int32_t handle,
     flags |= TF_ACCEPT_FDS;
 
     IF_LOG_TRANSACTIONS() {
-        TextOutput::Bundle _b(alog);
         alog << "BC_TRANSACTION thr " << (void*)pthread_self() << " / hand "
             << handle << " / code " << TypeCode(code) << ": "
             << indent << data << dedent << endl;
@@ -617,7 +616,6 @@ status_t IPCThreadState::transact(int32_t handle,
         #endif
         
         IF_LOG_TRANSACTIONS() {
-            TextOutput::Bundle _b(alog);
             alog << "BR_REPLY thr " << (void*)pthread_self() << " / hand "
                 << handle << ": ";
             if (reply) alog << indent << *reply << dedent << endl;
@@ -852,7 +850,6 @@ status_t IPCThreadState::talkWithDriver(bool doReceive)
     }
 
     IF_LOG_COMMANDS() {
-        TextOutput::Bundle _b(alog);
         if (outAvail != 0) {
             alog << "Sending commands to driver: " << indent;
             const void* cmds = (const void*)bwr.write_buffer;
@@ -909,7 +906,6 @@ status_t IPCThreadState::talkWithDriver(bool doReceive)
             mIn.setDataPosition(0);
         }
         IF_LOG_COMMANDS() {
-            TextOutput::Bundle _b(alog);
             alog << "Remaining data size: " << mOut.dataSize() << endl;
             alog << "Received commands from driver: " << indent;
             const void* cmds = mIn.data();
@@ -1094,7 +1090,6 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
             status_t error;
             bool reply_sent = false;
             IF_LOG_TRANSACTIONS() {
-                TextOutput::Bundle _b(alog);
                 alog << "BR_TRANSACTION thr " << (void*)pthread_self()
                     << " / obj " << tr.target.ptr << " / code "
                     << TypeCode(tr.code) << ": " << indent << buffer
@@ -1163,7 +1158,6 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
             mLastTransactionBinderFlags = origTransactionBinderFlags;
 
             IF_LOG_TRANSACTIONS() {
-                TextOutput::Bundle _b(alog);
                 alog << "BC_REPLY thr " << (void*)pthread_self() << " / obj "
                     << tr.target.ptr << ": " << indent << reply << dedent << endl;
             }
