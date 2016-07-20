@@ -28,7 +28,7 @@
 #include <utils/Vector.h>
 #include <utils/Flattenable.h>
 
-#include <linux/binder.h>
+#include <linux/android/binder.h>
 
 enum {
 	BINDER_TYPE_PTR		= B_PACK_CHARS('p', 't', '*', B_TYPE_LARGE),
