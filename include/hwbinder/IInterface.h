@@ -74,7 +74,7 @@ protected:
 #define DECLARE_HWBINDER_META_INTERFACE(INTERFACE)                      \
     static const android::String16 descriptor;                          \
     static android::sp<I##INTERFACE> asInterface(                       \
-            const android::sp<android::hidl::IBinder>& obj);                  \
+            const android::sp<android::hidl::IBinder>& obj);            \
     virtual const android::String16& getInterfaceDescriptor() const;    \
     I##INTERFACE();                                                     \
     virtual ~I##INTERFACE();                                            \
@@ -87,7 +87,7 @@ protected:
         return I##INTERFACE::descriptor;                                \
     }                                                                   \
     android::sp<I##INTERFACE> I##INTERFACE::asInterface(                \
-            const android::sp<android::hidl::IBinder>& obj)                   \
+            const android::sp<android::hidl::IBinder>& obj)             \
     {                                                                   \
         android::sp<I##INTERFACE> intr;                                 \
         if (obj != NULL) {                                              \
@@ -104,7 +104,7 @@ protected:
     I##INTERFACE::~I##INTERFACE() { }                                   \
 
 
-#define CHECK_INTERFACE(interface, data, reply)                         \
+#define CHECK_HWBINDER_INTERFACE(interface, data, reply)                \
     if (!data.checkInterface(this)) { return PERMISSION_DENIED; }       \
 
 
