@@ -71,7 +71,7 @@ protected:
 
 // ----------------------------------------------------------------------
 
-#define DECLARE_META_INTERFACE(INTERFACE)                               \
+#define DECLARE_HWBINDER_META_INTERFACE(INTERFACE)                      \
     static const android::String16 descriptor;                          \
     static android::sp<I##INTERFACE> asInterface(                       \
             const android::sp<android::hidl::IBinder>& obj);                  \
@@ -80,7 +80,7 @@ protected:
     virtual ~I##INTERFACE();                                            \
 
 
-#define IMPLEMENT_META_INTERFACE(INTERFACE, NAME)                       \
+#define IMPLEMENT_HWBINDER_META_INTERFACE(INTERFACE, NAME)              \
     const android::String16 I##INTERFACE::descriptor(NAME);             \
     const android::String16&                                            \
             I##INTERFACE::getInterfaceDescriptor() const {              \

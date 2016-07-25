@@ -113,7 +113,7 @@ public:
     }
 };
 
-IMPLEMENT_META_INTERFACE(ServiceManager, "android.os.IServiceManager");
+IMPLEMENT_HWBINDER_META_INTERFACE(ServiceManager, "android.os.IServiceManager");
 
 }; // namespace hidl
 }; // namespace android
