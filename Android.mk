@@ -31,17 +31,3 @@ endif
 LOCAL_CFLAGS += -Werror
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 include $(BUILD_SHARED_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := libhwbinder
-LOCAL_STATIC_LIBRARIES := libbase libutils
-LOCAL_EXPORT_STATIC_LIBRARY_HEADERS := libbase libutils
-LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
-ifneq ($(TARGET_USES_64_BIT_BINDER),true)
-ifneq ($(TARGET_IS_64_BIT),true)
-LOCAL_CFLAGS += -DBINDER_IPC_32BIT=1
-endif
-endif
-LOCAL_CFLAGS += -Werror
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
-include $(BUILD_STATIC_LIBRARY)
