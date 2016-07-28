@@ -20,6 +20,8 @@ LOCAL_MODULE := libhwbinder
 LOCAL_SHARED_LIBRARIES := libbase liblog libcutils libutils
 LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := libbase libutils
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+
 LOCAL_CLANG := true
 LOCAL_SANITIZE := integer
 LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
