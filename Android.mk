@@ -32,4 +32,8 @@ endif
 endif
 LOCAL_CFLAGS += -Werror
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+
+LOCAL_MULTILIB := both
+LOCAL_COMPATIBILITY_SUITE := vts
 include $(BUILD_SHARED_LIBRARY)
+-include test/vts/tools/build/Android.packaging_sharedlib.mk
