@@ -26,7 +26,7 @@
 #include <string.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 // ---------------------------------------------------------------------------
 
@@ -167,5 +167,5 @@ TextOutput& operator<<(TextOutput& to, const HexDump& val)
     return to;
 }
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

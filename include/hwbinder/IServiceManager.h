@@ -15,15 +15,15 @@
  */
 
 //
-#ifndef ANDROID_HIDL_ISERVICE_MANAGER_H
-#define ANDROID_HIDL_ISERVICE_MANAGER_H
+#ifndef ANDROID_HARDWARE_ISERVICE_MANAGER_H
+#define ANDROID_HARDWARE_ISERVICE_MANAGER_H
 
 #include <hwbinder/IInterface.h>
 #include <hwbinder/Hidl.h>
 #include <utils/String16.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 // ----------------------------------------------------------------------
 
 class IServiceManager : public IInterface
@@ -36,14 +36,14 @@ public:
      * if it doesn't yet exist.
      */
     virtual sp<IBinder>         getService( const String16& name,
-                                            const android::hidl::hidl_version version
+                                            const android::hardware::hidl_version version
                                           ) const = 0;
 
     /**
      * Retrieve an existing service, non-blocking.
      */
     virtual sp<IBinder>         checkService( const String16& name,
-                                              const android::hidl::hidl_version version
+                                              const android::hardware::hidl_version version
                                             ) const = 0;
 
     /**
@@ -51,7 +51,7 @@ public:
      */
     virtual status_t            addService( const String16& name,
                                             const sp<IBinder>& service,
-                                            const android::hidl::hidl_version version,
+                                            const android::hardware::hidl_version version,
                                             bool allowIsolated = false) = 0;
 
     enum {
@@ -65,7 +65,7 @@ public:
 sp<IServiceManager> defaultServiceManager();
 
 template<typename INTERFACE>
-status_t getService(const String16& name, android::hidl::hidl_version version,
+status_t getService(const String16& name, android::hardware::hidl_version version,
         sp<INTERFACE>* outService)
 {
     const sp<IServiceManager> sm = defaultServiceManager();
@@ -76,8 +76,8 @@ status_t getService(const String16& name, android::hidl::hidl_version version,
     return NAME_NOT_FOUND;
 }
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 
-#endif // ANDROID_HIDL_ISERVICE_MANAGER_H
+#endif // ANDROID_HARDWARE_ISERVICE_MANAGER_H
 

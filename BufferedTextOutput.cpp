@@ -31,7 +31,7 @@
 // ---------------------------------------------------------------------------
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 struct BufferedTextOutput::BufferState : public RefBase
 {
@@ -280,5 +280,5 @@ BufferedTextOutput::BufferState* BufferedTextOutput::getBuffer() const
     return mGlobalState;
 }
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

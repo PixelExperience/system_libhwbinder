@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HIDL_BINDER_STATUS_H
-#define ANDROID_HIDL_BINDER_STATUS_H
+#ifndef ANDROID_HARDWARE_BINDER_STATUS_H
+#define ANDROID_HARDWARE_BINDER_STATUS_H
 
 #include <cstdint>
 #include <sstream>
@@ -24,8 +24,7 @@
 #include <utils/String8.h>
 
 namespace android {
-namespace hidl {
-namespace binder {
+namespace hardware {
 
 // An object similar in function to a status_t except that it understands
 // how exceptions are encoded in the prefix of a Parcel. Used like:
@@ -146,8 +145,7 @@ private:
 // For gtest output logging
 std::stringstream& operator<< (std::stringstream& stream, const Status& s);
 
-}  // namespace binder
-}  // namespace hidl
+}  // namespace hardware
 }  // namespace android
 
-#endif // ANDROID_HIDL_BINDER_STATUS_H
+#endif // ANDROID_HARDWARE_BINDER_STATUS_H

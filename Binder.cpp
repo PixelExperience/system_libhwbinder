@@ -25,7 +25,7 @@
 #include <stdio.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 // ---------------------------------------------------------------------------
 
@@ -273,5 +273,5 @@ bool BpRefBase::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
 
 // ---------------------------------------------------------------------------
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

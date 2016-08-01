@@ -48,7 +48,7 @@
 // -------------------------------------------------------------------------
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 class PoolThread : public Thread
 {
@@ -376,5 +376,5 @@ ProcessState::~ProcessState()
     mDriverFD = -1;
 }
         
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HIDL_PERSISTABLE_BUNDLE_H
-#define ANDROID_HIDL_PERSISTABLE_BUNDLE_H
+#ifndef ANDROID_HARDWARE_PERSISTABLE_BUNDLE_H
+#define ANDROID_HARDWARE_PERSISTABLE_BUNDLE_H
 
 #include <map>
 #include <set>
@@ -26,8 +26,7 @@
 #include <utils/StrongPointer.h>
 
 namespace android {
-namespace hidl {
-namespace os {
+namespace hardware {
 
 /*
  * C++ implementation of PersistableBundle, a mapping from String values to
@@ -125,8 +124,7 @@ private:
     std::map<String16, PersistableBundle> mPersistableBundleMap;
 };
 
-}  // namespace os
-}  // namespace hidl
+}  // namespace hardware
 }  // namespace android
 
 #endif  // ANDROID_PERSISTABLE_BUNDLE_H

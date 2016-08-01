@@ -15,13 +15,13 @@
  */
 
 //
-#ifndef ANDROID_HIDL_IINTERFACE_H
-#define ANDROID_HIDL_IINTERFACE_H
+#ifndef ANDROID_HARDWARE_IINTERFACE_H
+#define ANDROID_HARDWARE_IINTERFACE_H
 
 #include <hwbinder/Binder.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 // ----------------------------------------------------------------------
 
 class IInterface : public virtual RefBase
@@ -74,7 +74,7 @@ protected:
 #define DECLARE_HWBINDER_META_INTERFACE(INTERFACE)                      \
     static const android::String16 descriptor;                          \
     static android::sp<I##INTERFACE> asInterface(                       \
-            const android::sp<android::hidl::IBinder>& obj);            \
+            const android::sp<android::hardware::IBinder>& obj);        \
     virtual const android::String16& getInterfaceDescriptor() const;    \
     I##INTERFACE();                                                     \
     virtual ~I##INTERFACE();                                            \
@@ -87,7 +87,7 @@ protected:
         return I##INTERFACE::descriptor;                                \
     }                                                                   \
     android::sp<I##INTERFACE> I##INTERFACE::asInterface(                \
-            const android::sp<android::hidl::IBinder>& obj)             \
+            const android::sp<android::hardware::IBinder>& obj)         \
     {                                                                   \
         android::sp<I##INTERFACE> intr;                                 \
         if (obj != NULL) {                                              \
@@ -145,7 +145,7 @@ inline IBinder* BpInterface<INTERFACE>::onAsBinder()
     
 // ----------------------------------------------------------------------
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 
-#endif // ANDROID_HIDL_IINTERFACE_H
+#endif // ANDROID_HARDWARE_IINTERFACE_H

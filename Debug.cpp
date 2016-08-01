@@ -23,7 +23,7 @@
 #include <ctype.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 // ---------------------------------------------------------------------
 
@@ -295,6 +295,6 @@ void printHexData(int32_t indent, const void *buf, size_t length,
     }
 }
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 

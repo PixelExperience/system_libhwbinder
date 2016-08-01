@@ -27,10 +27,10 @@
 
 #include <unistd.h>
 
-using android::hidl::hidl_version;
+using android::hardware::hidl_version;
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 sp<IServiceManager> defaultServiceManager()
 {
@@ -113,7 +113,7 @@ public:
     }
 };
 
-IMPLEMENT_HWBINDER_META_INTERFACE(ServiceManager, "android.os.IServiceManager");
+IMPLEMENT_HWBINDER_META_INTERFACE(ServiceManager, "android.hardware.IServiceManager");
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

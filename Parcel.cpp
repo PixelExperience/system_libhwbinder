@@ -84,7 +84,7 @@ struct small_flat_data
 };
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 static pthread_mutex_t gParcelGlobalAllocSizeLock = PTHREAD_MUTEX_INITIALIZER;
 static size_t gParcelGlobalAllocSize = 0;
@@ -1457,7 +1457,7 @@ status_t Parcel::writeEmbeddedNativeHandle(const native_handle_t *handle,
 
 status_t Parcel::writeNoException()
 {
-    binder::Status status;
+    Status status;
     return status.writeToParcel(this);
 }
 
@@ -2059,7 +2059,7 @@ status_t Parcel::readParcelable(Parcelable* parcelable) const {
 
 int32_t Parcel::readExceptionCode() const
 {
-    binder::Status status;
+    Status status;
     status.readFromParcel(*this);
     return status.exceptionCode();
 }
@@ -2811,5 +2811,5 @@ void Parcel::Blob::clear() {
     mMutable = false;
 }
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HIDL_BINDER_SERVICE_H
-#define ANDROID_HIDL_BINDER_SERVICE_H
+#ifndef ANDROID_HARDWARE_BINDER_SERVICE_H
+#define ANDROID_HARDWARE_BINDER_SERVICE_H
 
 #include <stdint.h>
 
@@ -29,7 +29,7 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
-namespace hidl {
+namespace hardware {
 
 template<typename SERVICE>
 class BinderService
@@ -60,7 +60,7 @@ private:
     }
 };
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 // ---------------------------------------------------------------------------
-#endif // ANDROID_HIDL_BINDER_SERVICE_H
+#endif // ANDROID_HARDWARE_BINDER_SERVICE_H

@@ -28,7 +28,6 @@
 using android::BAD_TYPE;
 using android::BAD_VALUE;
 using android::NO_ERROR;
-using android::hidl::Parcel;
 using android::sp;
 using android::status_t;
 using android::UNEXPECTED_NULL;
@@ -77,8 +76,7 @@ set<android::String16> getKeys(const map<android::String16, T>& map) {
 }  // namespace
 
 namespace android {
-namespace hidl {
-namespace os {
+namespace hardware {
 
 #define RETURN_IF_FAILED(calledOnce)                                     \
     {                                                                    \
@@ -486,6 +484,5 @@ status_t PersistableBundle::readFromParcelInner(const Parcel* parcel, size_t len
     return NO_ERROR;
 }
 
-}  // namespace os
-}  // namespace hidl
+}  // namespace hardware
 }  // namespace android

@@ -28,7 +28,7 @@
 //#define ALOGV(...) fprintf(stderr, __VA_ARGS__)
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 // ---------------------------------------------------------------------------
 
@@ -362,5 +362,5 @@ bool BpBinder::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
 
 // ---------------------------------------------------------------------------
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

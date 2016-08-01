@@ -15,28 +15,28 @@
  */
 
 //
-#ifndef ANDROID_HIDL_HIDL_H
-#define ANDROID_HIDL_HIDL_H
+#ifndef ANDROID_HARDWARE_HIDL_H
+#define ANDROID_HARDWARE_HIDL_H
 
 #include <cutils/ashmem.h>
 #include <sys/mman.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 // ----------------------------------------------------------------------
 // Version functions
 // TODO probably nicer to make this a struct
 typedef uint32_t hidl_version;
 
-inline android::hidl::hidl_version make_hidl_version(uint16_t major, uint16_t minor) {
+inline android::hardware::hidl_version make_hidl_version(uint16_t major, uint16_t minor) {
     return (uint32_t) major << 16 | minor;
 }
 
-inline uint16_t get_major_hidl_version(android::hidl::hidl_version version) {
+inline uint16_t get_major_hidl_version(android::hardware::hidl_version version) {
     return version >> 16;
 }
 
-inline uint16_t get_minor_hidl_version(android::hidl::hidl_version version) {
+inline uint16_t get_minor_hidl_version(android::hardware::hidl_version version) {
     return version & 0x0000FFFF;
 }
 
@@ -77,7 +77,7 @@ int from_ref(int fd, T** ptr) {
     return 0;
 }
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 
-#endif // ANDROID_HIDL_HIDL_H
+#endif // ANDROID_HARDWARE_HIDL_H

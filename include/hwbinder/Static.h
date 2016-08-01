@@ -24,7 +24,7 @@
 #include <hwbinder/IServiceManager.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 // For TextStream.cpp
 extern Vector<int32_t> gTextBuffers;
@@ -37,5 +37,5 @@ extern sp<ProcessState> gProcess;
 extern Mutex gDefaultServiceManagerLock;
 extern sp<IServiceManager> gDefaultServiceManager;
 
-}   // namespace hidl
+}   // namespace hardware
 }   // namespace android

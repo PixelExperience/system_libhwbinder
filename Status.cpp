@@ -17,8 +17,7 @@
 #include <hwbinder/Status.h>
 
 namespace android {
-namespace hidl {
-namespace binder {
+namespace hardware {
 
 Status Status::ok() {
     return Status();
@@ -164,6 +163,5 @@ std::stringstream& operator<< (std::stringstream& stream, const Status& s) {
     return stream;
 }
 
-}  // namespace binder
-}  // namespace hidl
+}  // namespace hardware
 }  // namespace android

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HIDL_BINDER_KERNEL_H
-#define ANDROID_HIDL_BINDER_KERNEL_H
+#ifndef ANDROID_HARDWARE_BINDER_KERNEL_H
+#define ANDROID_HARDWARE_BINDER_KERNEL_H
 
 #include <linux/android/binder.h>
 
@@ -97,4 +97,4 @@ enum {
 	BC_REPLY_SG = _IOW('c', 18, struct binder_transaction_data_sg),
 };
 
-#endif // ANDROID_HIDL_BINDER_KERNEL_H
+#endif // ANDROID_HARDWARE_BINDER_KERNEL_H

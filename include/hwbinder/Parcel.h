@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HIDL_PARCEL_H
-#define ANDROID_HIDL_PARCEL_H
+#ifndef ANDROID_HARDWARE_PARCEL_H
+#define ANDROID_HARDWARE_PARCEL_H
 
 #include <string>
 #include <vector>
@@ -36,7 +36,7 @@
 // ---------------------------------------------------------------------------
 namespace android {
 class String8;
-namespace hidl {
+namespace hardware {
 
 template <typename T> class Flattenable;
 template <typename T> class LightFlattenable;
@@ -819,9 +819,9 @@ status_t unflatten_binder(const sp<ProcessState>& proc,
 status_t unflatten_binder(const sp<ProcessState>& proc,
                           const flat_binder_object& flat, wp<IBinder>* out);
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_HIDL_PARCEL_H
+#endif // ANDROID_HARDWARE_PARCEL_H

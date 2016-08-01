@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HIDL_BINDER_H
-#define ANDROID_HIDL_BINDER_H
+#ifndef ANDROID_HARDWARE_BINDER_H
+#define ANDROID_HARDWARE_BINDER_H
 
 #include <atomic>
 #include <stdint.h>
@@ -23,7 +23,7 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
-namespace hidl {
+namespace hardware {
 
 class BBinder : public IBinder
 {
@@ -101,9 +101,9 @@ private:
     std::atomic<int32_t>    mState;
 };
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_HIDL_BINDER_H
+#endif // ANDROID_HARDWARE_BINDER_H

@@ -19,7 +19,7 @@
 #include <hwbinder/IInterface.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 // ---------------------------------------------------------------------------
 
@@ -47,5 +47,5 @@ sp<IBinder> IInterface::asBinder(const sp<IInterface>& iface)
 
 // ---------------------------------------------------------------------------
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

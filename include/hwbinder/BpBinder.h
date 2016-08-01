@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HIDL_BPBINDER_H
-#define ANDROID_HIDL_BPBINDER_H
+#ifndef ANDROID_HARDWARE_BPBINDER_H
+#define ANDROID_HARDWARE_BPBINDER_H
 
 #include <hwbinder/IBinder.h>
 #include <utils/KeyedVector.h>
@@ -23,7 +23,7 @@
 
 // ---------------------------------------------------------------------------
 namespace android {
-namespace hidl {
+namespace hardware {
 
 class BpBinder : public IBinder
 {
@@ -119,9 +119,9 @@ private:
     mutable String16            mDescriptorCache;
 };
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_HIDL_BPBINDER_H
+#endif // ANDROID_HARDWARE_BPBINDER_H

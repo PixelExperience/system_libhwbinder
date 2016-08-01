@@ -63,7 +63,7 @@
 // ---------------------------------------------------------------------------
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 static const char* getReturnString(size_t idx);
 static const void* printReturnCommand(TextOutput& out, const void* _cmd);
@@ -1234,5 +1234,5 @@ void IPCThreadState::freeBuffer(Parcel* parcel, const uint8_t* data,
     state->mOut.writePointer((uintptr_t)data);
 }
 
-}; // namespace hidl
+}; // namespace hardware
 }; // namespace android

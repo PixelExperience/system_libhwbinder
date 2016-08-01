@@ -24,7 +24,7 @@
 #include <utils/Log.h>
 
 namespace android {
-namespace hidl {
+namespace hardware {
 
 // ------------ Text output streams
 
@@ -96,5 +96,5 @@ static LibBinderIPCtStatics gIPCStatics;
 Mutex gDefaultServiceManagerLock;
 sp<IServiceManager> gDefaultServiceManager;
 
-}   // namespace hidl
+}   // namespace hardware
 }   // namespace android
