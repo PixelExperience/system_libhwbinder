@@ -812,7 +812,7 @@ status_t Parcel::writeUtf8AsUtf16(const std::string& str) {
         return NO_MEMORY;
     }
 
-    utf8_to_utf16(strData, strLen, (char16_t*)dst);
+    utf8_to_utf16(strData, strLen, (char16_t*)dst, static_cast<size_t>(utf16Len) + 1);
 
     return NO_ERROR;
 }
