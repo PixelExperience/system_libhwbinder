@@ -40,7 +40,6 @@
 
 #include <cutils/ashmem.h>
 #include <utils/Debug.h>
-#include <utils/Flattenable.h>
 #include <utils/Log.h>
 #include <utils/misc.h>
 #include <utils/String8.h>
@@ -1137,22 +1136,6 @@ status_t Parcel::writeWeakBinder(const wp<IBinder>& val)
     return flatten_binder(ProcessState::self(), val, this);
 }
 
-status_t Parcel::writeRawNullableParcelable(const Parcelable* parcelable) {
-    if (!parcelable) {
-        return writeInt32(0);
-    }
-
-    return writeParcelable(*parcelable);
-}
-
-status_t Parcel::writeParcelable(const Parcelable& parcelable) {
-    status_t status = writeInt32(1);  // parcelable is not null.
-    if (status != OK) {
-        return status;
-    }
-    return parcelable.writeToParcel(this);
-}
-
 status_t Parcel::writeNativeHandle(const native_handle* handle)
 {
     if (!handle || handle->version != sizeof(native_handle))
@@ -1274,52 +1257,6 @@ status_t Parcel::writeDupImmutableBlobFileDescriptor(int fd)
     status_t status = writeInt32(BLOB_ASHMEM_IMMUTABLE);
     if (status) return status;
     return writeDupFileDescriptor(fd);
-}
-
-status_t Parcel::write(const FlattenableHelperInterface& val)
-{
-    status_t err;
-
-    // size if needed
-    const size_t len = val.getFlattenedSize();
-    const size_t fd_count = val.getFdCount();
-
-    if ((len > INT32_MAX) || (fd_count >= gMaxFds)) {
-        // don't accept size_t values which may have come from an
-        // inadvertent conversion from a negative int.
-        return BAD_VALUE;
-    }
-
-    err = this->writeInt32(len);
-    if (err) return err;
-
-    err = this->writeInt32(fd_count);
-    if (err) return err;
-
-    // payload
-    void* const buf = this->writeInplace(pad_size(len));
-    if (buf == NULL)
-        return BAD_VALUE;
-
-    int* fds = NULL;
-    if (fd_count) {
-        fds = new (std::nothrow) int[fd_count];
-        if (fds == nullptr) {
-            ALOGE("write: failed to allocate requested %zu fds", fd_count);
-            return BAD_VALUE;
-        }
-    }
-
-    err = val.flatten(buf, len, fds, fd_count);
-    for (size_t i=0 ; i<fd_count && err==NO_ERROR ; i++) {
-        err = this->writeDupFileDescriptor( fds[i] );
-    }
-
-    if (fd_count) {
-        delete [] fds;
-    }
-
-    return err;
 }
 
 template <typename T>
@@ -2045,18 +1982,6 @@ wp<IBinder> Parcel::readWeakBinder() const
     return val;
 }
 
-status_t Parcel::readParcelable(Parcelable* parcelable) const {
-    int32_t have_parcelable = 0;
-    status_t status = readInt32(&have_parcelable);
-    if (status != OK) {
-        return status;
-    }
-    if (!have_parcelable) {
-        return UNEXPECTED_NULL;
-    }
-    return parcelable->readFromParcel(this);
-}
-
 int32_t Parcel::readExceptionCode() const
 {
     Status status;
@@ -2154,53 +2079,6 @@ status_t Parcel::readBlob(size_t len, ReadableBlob* outBlob) const
 
     outBlob->init(fd, ptr, len, isMutable);
     return NO_ERROR;
-}
-
-status_t Parcel::read(FlattenableHelperInterface& val) const
-{
-    // size
-    const size_t len = this->readInt32();
-    const size_t fd_count = this->readInt32();
-
-    if ((len > INT32_MAX) || (fd_count >= gMaxFds)) {
-        // don't accept size_t values which may have come from an
-        // inadvertent conversion from a negative int.
-        return BAD_VALUE;
-    }
-
-    // payload
-    void const* const buf = this->readInplace(pad_size(len));
-    if (buf == NULL)
-        return BAD_VALUE;
-
-    int* fds = NULL;
-    if (fd_count) {
-        fds = new (std::nothrow) int[fd_count];
-        if (fds == nullptr) {
-            ALOGE("read: failed to allocate requested %zu fds", fd_count);
-            return BAD_VALUE;
-        }
-    }
-
-    status_t err = NO_ERROR;
-    for (size_t i=0 ; i<fd_count && err==NO_ERROR ; i++) {
-        fds[i] = dup(this->readFileDescriptor());
-        if (fds[i] < 0) {
-            err = BAD_VALUE;
-            ALOGE("dup() failed in Parcel::read, i is %zu, fds[i] is %d, fd_count is %zu, error: %s",
-                i, fds[i], fd_count, strerror(errno));
-        }
-    }
-
-    if (err == NO_ERROR) {
-        err = val.unflatten(buf, len, fds, fd_count);
-    }
-
-    if (fd_count) {
-        delete [] fds;
-    }
-
-    return err;
 }
 
 template<typename T>
