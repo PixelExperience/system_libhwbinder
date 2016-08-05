@@ -960,6 +960,26 @@ status_t Parcel::writeUtf8VectorAsUtf16Vector(const std::vector<std::string>& va
     return writeTypedVector(val, &Parcel::writeUtf8AsUtf16);
 }
 
+status_t Parcel::writeInt8(int8_t val)
+{
+    return write(&val, sizeof(val));
+}
+
+status_t Parcel::writeUint8(uint8_t val)
+{
+    return write(&val, sizeof(val));
+}
+
+status_t Parcel::writeInt16(int16_t val)
+{
+    return write(&val, sizeof(val));
+}
+
+status_t Parcel::writeUint16(uint16_t val)
+{
+    return write(&val, sizeof(val));
+}
+
 status_t Parcel::writeInt32(int32_t val)
 {
     return writeAligned(val);
@@ -1313,8 +1333,9 @@ template status_t Parcel::writeObject<binder_buffer_object>(
 template status_t Parcel::writeObject<binder_fd_array_object>(
         const binder_fd_array_object& val, bool nullMetaData);
 
-status_t Parcel::writeEmbeddedBuffer(void *buffer, size_t length, size_t *handle,
-                             size_t parent_buffer_handle, size_t parent_offset)
+status_t Parcel::writeEmbeddedBuffer(
+        const void *buffer, size_t length, size_t *handle,
+        size_t parent_buffer_handle, size_t parent_offset)
 {
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
@@ -1339,7 +1360,7 @@ status_t Parcel::writeEmbeddedBuffer(void *buffer, size_t length, size_t *handle
     return writeObject(obj, true /* nullMetaData */);
 }
 
-status_t Parcel::writeBuffer(void *buffer, size_t length, size_t *handle)
+status_t Parcel::writeBuffer(const void *buffer, size_t length, size_t *handle)
 {
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
@@ -1665,6 +1686,26 @@ status_t Parcel::readUtf8VectorFromUtf16Vector(std::vector<std::string>* val) co
     return readTypedVector(val, &Parcel::readUtf8FromUtf16);
 }
 
+status_t Parcel::readInt8(int8_t *pArg) const
+{
+    return read(pArg, sizeof(*pArg));
+}
+
+status_t Parcel::readUint8(uint8_t *pArg) const
+{
+    return read(pArg, sizeof(*pArg));
+}
+
+status_t Parcel::readInt16(int16_t *pArg) const
+{
+    return read(pArg, sizeof(*pArg));
+}
+
+status_t Parcel::readUint16(uint16_t *pArg) const
+{
+    return read(pArg, sizeof(*pArg));
+}
+
 status_t Parcel::readInt32(int32_t *pArg) const
 {
     return readAligned(pArg);
@@ -1841,7 +1882,8 @@ status_t Parcel::readUtf8FromUtf16(std::string* str) const {
         return BAD_VALUE;
     }
     // Note that while it is probably safe to assume string::resize keeps a
-    // spare byte around for the trailing null, we still pass the size including the trailing null
+    // spare byte around for the trailing null, we still pass the size including
+    // the trailing null
     str->resize(utf8Size);
     utf16_to_utf8(src, utf16Size, &((*str)[0]), utf8Size);
     str->resize(utf8Size - 1);

@@ -99,6 +99,10 @@ public:
     status_t            write(const void* data, size_t len);
     void*               writeInplace(size_t len);
     status_t            writeUnpadded(const void* data, size_t len);
+    status_t            writeInt8(int8_t val);
+    status_t            writeUint8(uint8_t val);
+    status_t            writeInt16(int16_t val);
+    status_t            writeUint16(uint16_t val);
     status_t            writeInt32(int32_t val);
     status_t            writeUint32(uint32_t val);
     status_t            writeInt64(int64_t val);
@@ -192,8 +196,8 @@ public:
     template<typename T>
     status_t            writeObject(const T& val, bool nullMetaData);
 
-    status_t            writeBuffer(void *buffer, size_t length, size_t *handle);
-    status_t            writeEmbeddedBuffer(void *buffer, size_t length, size_t *handle,
+    status_t            writeBuffer(const void *buffer, size_t length, size_t *handle);
+    status_t            writeEmbeddedBuffer(const void *buffer, size_t length, size_t *handle,
                             size_t parent_buffer_handle, size_t parent_offset);
 
     status_t            writeEmbeddedNativeHandle(const native_handle_t *handle,
@@ -208,6 +212,10 @@ public:
     
     status_t            read(void* outData, size_t len) const;
     const void*         readInplace(size_t len) const;
+    status_t            readInt8(int8_t *pArg) const;
+    status_t            readUint8(uint8_t *pArg) const;
+    status_t            readInt16(int16_t *pArg) const;
+    status_t            readUint16(uint16_t *pArg) const;
     int32_t             readInt32() const;
     status_t            readInt32(int32_t *pArg) const;
     uint32_t            readUint32() const;
