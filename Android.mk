@@ -24,7 +24,20 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
 LOCAL_CLANG := true
 LOCAL_SANITIZE := integer
-LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
+LOCAL_SRC_FILES := \
+	Binder.cpp \
+	BpBinder.cpp \
+	BufferedTextOutput.cpp \
+	Debug.cpp \
+	IInterface.cpp \
+	IPCThreadState.cpp \
+	IServiceManager.cpp \
+	Parcel.cpp \
+	ProcessState.cpp \
+	Static.cpp \
+	Status.cpp \
+	TextOutput.cpp
+
 ifneq ($(TARGET_USES_64_BIT_BINDER),true)
 ifneq ($(TARGET_IS_64_BIT),true)
 LOCAL_CFLAGS += -DBINDER_IPC_32BIT=1
