@@ -1,19 +1,20 @@
 #include <iostream>
 #include <map>
 
-#include <unistd.h>
-
-#include <BnTestMsgQ.h>
+#include <android/hardware/tests/msgq/1.0/BnTestMsgQ.h>
 #include <common/MessageQueue.h>
+#include <cutils/ashmem.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/IServiceManager.h>
 #include <hwbinder/ProcessState.h>
 #include <hwbinder/Status.h>
+#include <unistd.h>
 #include <utils/Errors.h>
 #include <utils/Log.h>
 #include <utils/Looper.h>
 #include <utils/StrongPointer.h>
+
 // libutils:
 using android::Looper;
 using android::LooperCallback;
@@ -31,7 +32,6 @@ using android::hardware::ProcessState;
 using android::hardware::Status;
 using android::hardware::hidl_version;
 using android::hardware::make_hidl_version;
-using android::hardware::from_ref;
 
 // Standard library
 using std::cerr;
@@ -43,7 +43,7 @@ using std::unique_ptr;
 using std::vector;
 
 // Generated HIDL files
-using android::hardware::tests::BnTestMsgQ;
+using android::hardware::tests::msgq::V1_0::BnTestMsgQ;
 
 typedef uint64_t ringbuffer_position_t;
 
@@ -118,21 +118,20 @@ class TestMsgQ : public BnTestMsgQ {
      * Create Grantor Descriptors for read, write pointers and the data buffer.
      */
     Grantors[android::hardware::READPTRPOS] = {0, 0, 0,
-                                           sizeof(ringbuffer_position_t)};
-    Grantors[android::hardware::WRITEPTRPOS] = {0, 0, sizeof(ringbuffer_position_t),
-                                            sizeof(ringbuffer_position_t)};
+                                               sizeof(ringbuffer_position_t)};
+    Grantors[android::hardware::WRITEPTRPOS] = {
+        0, 0, sizeof(ringbuffer_position_t), sizeof(ringbuffer_position_t)};
     Grantors[android::hardware::DATAPTRPOS] = {
         0, 0, 2 * sizeof(ringbuffer_position_t), eventQueueDataSize};
 
     android::hardware::MQDescriptor mydesc(Grantors, mq_handle, 0,
-                                       sizeof(uint16_t));
+                                           sizeof(uint16_t));
     if (fmsg_queue) {
       delete fmsg_queue;
     }
     fmsg_queue = new android::hardware::MessageQueue<uint16_t>(mydesc);
     ITestMsgQ::WireMQDescriptor* wmsgq_desc = CreateWireMQDescriptor(mydesc);
     callback(*wmsgq_desc);
-    delete[] wmsgq_desc->grantors.buffer;
     delete wmsgq_desc;
     return Status::ok();
   }
@@ -158,13 +157,12 @@ class TestMsgQ : public BnTestMsgQ {
     ITestMsgQ::WireMQDescriptor* wmq_desc = new ITestMsgQ::WireMQDescriptor;
     const vector<android::hardware::GrantorDescriptor>& vec_gd =
         rb_desc.getGrantors();
-    wmq_desc->grantors.count = vec_gd.size();
-    wmq_desc->grantors.buffer =
-        new ITestMsgQ::WireGrantorDescriptor[wmq_desc->grantors.count];
-    for (size_t i = 0; i < wmq_desc->grantors.count; i++) {
-      wmq_desc->grantors.buffer[i] = {
+    auto grantor_buf = new ITestMsgQ::WireGrantorDescriptor[vec_gd.size()];
+    for (size_t i = 0; i < vec_gd.size(); i++) {
+      grantor_buf[i] = {
           0, {vec_gd[i].fdIndex, vec_gd[i].offset, vec_gd[i].extent}};
     }
+    wmq_desc->grantors.setTo(grantor_buf, vec_gd.size());
     wmq_desc->mq_handle = (rb_desc.getHandle())->handle();
     wmq_desc->quantum = rb_desc.getQuantum();
     wmq_desc->flags = rb_desc.getFlags();

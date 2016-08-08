@@ -15,26 +15,25 @@
 #
 
 LOCAL_PATH := $(call my-dir)
-
 include $(CLEAR_VARS)
 LOCAL_MODULE := mq_test_service
 LOCAL_SRC_FILES := \
     common/MessageQueueDesc.cpp \
-    TestMsgQService.cpp \
-    ITestMsgQ.hal
+    msgq_test_service.cpp
 
 LOCAL_SHARED_LIBRARIES := libhwbinder libbase libcutils libutils
+LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0
 LOCAL_C_INCLUDES := system/libhwbinder/include
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_REQUIRED_MODULES := libgtest
 LOCAL_SRC_FILES := common/MessageQueueDesc.cpp \
-                   TestMsgQClient.cpp \
-                   test_main.cpp \
-                   ITestMsgQ.hal
+                   msgq_test_client.cpp \
+                   test_main.cpp
 
 LOCAL_SHARED_LIBRARIES := libhwbinder libbase libcutils libutils
+LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0
 LOCAL_STATIC_LIBRARIES := libgtest
 LOCAL_MODULE := mq_test_client
 LOCAL_C_INCLUDES := system/libhwbinder/include
@@ -43,11 +42,11 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_REQUIRED_MODULES := libgtest
 LOCAL_SRC_FILES := common/MessageQueueDesc.cpp \
-                   MQTest.cpp \
+                   mq_test.cpp \
                    test_main.cpp
 LOCAL_STATIC_LIBRARIES := libutils libcutils liblog libgtest
 LOCAL_SHARED_LIBRARIES := libhwbinder
 LOCAL_C_INCLUDES := system/libhwbinder/include
-LOCAL_MODULE := mq_tests
+LOCAL_MODULE := mq_test
 include $(BUILD_EXECUTABLE)
 

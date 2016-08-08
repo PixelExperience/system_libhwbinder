@@ -52,4 +52,4 @@ LOCAL_COMPATIBILITY_SUITE := vts
 include $(BUILD_SHARED_LIBRARY)
 -include test/vts/tools/build/Android.packaging_sharedlib.mk
 
--include $(LOCAL_PATH)/tests/benchmarks/Android.mk
+-include $(LOCAL_PATH)/tests/benchmarks/Android.mk $(LOCAL_PATH)/fast_msgq/Android.mk
