@@ -19,7 +19,7 @@
 #define ANDROID_HARDWARE_ISERVICE_MANAGER_H
 
 #include <hwbinder/IInterface.h>
-#include <hwbinder/Hidl.h>
+#include <hwbinder/HidlSupport.h>
 #include <utils/String16.h>
 
 namespace android {
@@ -36,14 +36,14 @@ public:
      * if it doesn't yet exist.
      */
     virtual sp<IBinder>         getService( const String16& name,
-                                            const android::hardware::hidl_version version
+                                            const android::hardware::hidl_version& version
                                           ) const = 0;
 
     /**
      * Retrieve an existing service, non-blocking.
      */
     virtual sp<IBinder>         checkService( const String16& name,
-                                              const android::hardware::hidl_version version
+                                              const android::hardware::hidl_version& version
                                             ) const = 0;
 
     /**
@@ -51,7 +51,7 @@ public:
      */
     virtual status_t            addService( const String16& name,
                                             const sp<IBinder>& service,
-                                            const android::hardware::hidl_version version,
+                                            const android::hardware::hidl_version& version,
                                             bool allowIsolated = false) = 0;
 
     enum {
