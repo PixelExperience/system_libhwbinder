@@ -29,6 +29,7 @@ LOCAL_SRC_FILES := \
 	BpBinder.cpp \
 	BufferedTextOutput.cpp \
 	Debug.cpp \
+	HidlSupport.cpp \
 	IInterface.cpp \
 	IPCThreadState.cpp \
 	IServiceManager.cpp \
