@@ -24,7 +24,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
-#include "common/MessageQueue.h"
+#include "../common/MessageQueue.h"
 
 // libutils:
 using android::OK;

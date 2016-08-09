@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
 #include <sstream>
-#include "common/MessageQueue.h"
+#include "../common/MessageQueue.h"
 
 static const int queue_size = 1024;
 typedef uint64_t mq_position_t;
@@ -53,10 +53,11 @@ class MQTests : public ::testing::Test {
      */
     Grantors[android::hardware::READPTRPOS] = {0, 0, 0, sizeof(mq_position_t)};
     Grantors[android::hardware::WRITEPTRPOS] = {0, 0, sizeof(mq_position_t),
-                                            sizeof(mq_position_t)};
+                                                sizeof(mq_position_t)};
     Grantors[android::hardware::DATAPTRPOS] = {0, 0, 2 * sizeof(mq_position_t),
-                                           queue_size};
-    android::hardware::MQDescriptor mydesc(Grantors, mq_handle, 0, sizeof(uint8_t));
+                                               queue_size};
+    android::hardware::MQDescriptor mydesc(Grantors, mq_handle, 0,
+                                           sizeof(uint8_t));
     fmsgq = new android::hardware::MessageQueue<uint8_t>(mydesc);
     ASSERT_TRUE(fmsgq != nullptr);
     ASSERT_TRUE(fmsgq->isValid());
