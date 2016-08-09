@@ -176,6 +176,41 @@ status_t hidl_vec<T>::writeEmbeddedToParcel(
             parentOffset + offsetof(hidl_vec<T>, mBuffer));
 }
 
+// ----------------------------------------------------------------------
+// Version functions
+struct hidl_version {
+public:
+    hidl_version(uint16_t major, uint16_t minor) : mMajor(major), mMinor(minor) {};
+
+    bool operator==(const hidl_version& other) {
+        return (mMajor == other.get_major() && mMinor == other.get_minor());
+    }
+    uint16_t get_major() const { return mMajor; }
+    uint16_t get_minor() const { return mMinor; }
+
+    android::status_t writeToParcel(android::hardware::Parcel& parcel) const {
+        return parcel.writeUint32((uint32_t) mMajor << 16 | mMinor);
+    }
+
+    static hidl_version* readFromParcel(const android::hardware::Parcel& parcel) {
+        uint32_t version;
+        android::status_t status = parcel.readUint32(&version);
+        if (status != OK) {
+            return nullptr;
+        } else {
+            return new hidl_version(version >> 16, version & 0xFFFF);
+        }
+    }
+
+private:
+    uint16_t mMajor;
+    uint16_t mMinor;
+};
+
+inline android::hardware::hidl_version make_hidl_version(uint16_t major, uint16_t minor) {
+    return hidl_version(major,minor);
+}
+
 }  // namespace hardware
 }  // namespace android
 

@@ -59,7 +59,7 @@ public:
     {
     }
 
-    virtual sp<IBinder> getService(const String16& name, const hidl_version version) const
+    virtual sp<IBinder> getService(const String16& name, const hidl_version& version) const
     {
         unsigned n;
         for (n = 0; n < 5; n++){
@@ -71,25 +71,25 @@ public:
         return NULL;
     }
 
-    virtual sp<IBinder> checkService( const String16& name, const hidl_version version) const
+    virtual sp<IBinder> checkService( const String16& name, const hidl_version& version) const
     {
         Parcel data, reply;
         data.writeInterfaceToken(IServiceManager::getInterfaceDescriptor());
         data.writeString16(name);
-        data.writeUint32(version);
+        version.writeToParcel(data);
         remote()->transact(CHECK_SERVICE_TRANSACTION, data, &reply);
         return reply.readStrongBinder();
     }
 
     virtual status_t addService(const String16& name,
-            const sp<IBinder>& service, const hidl_version version,
+            const sp<IBinder>& service, const hidl_version& version,
             bool allowIsolated)
     {
         Parcel data, reply;
         data.writeInterfaceToken(IServiceManager::getInterfaceDescriptor());
         data.writeString16(name);
         data.writeStrongBinder(service);
-        data.writeUint32(version);
+        version.writeToParcel(data);
         data.writeInt32(allowIsolated ? 1 : 0);
         status_t err = remote()->transact(ADD_SERVICE_TRANSACTION, data, &reply);
         return err == NO_ERROR ? reply.readExceptionCode() : err;
