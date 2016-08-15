@@ -22,8 +22,9 @@ namespace hardware {
 static const char *const kEmptyString = "";
 
 hidl_string::hidl_string()
-    : buffer(const_cast<char *>(kEmptyString)),
-      length(0) {
+    : mBuffer(const_cast<char *>(kEmptyString)),
+      mSize(0),
+      mOwnsBuffer(true) {
 }
 
 hidl_string::~hidl_string() {
@@ -31,8 +32,9 @@ hidl_string::~hidl_string() {
 }
 
 hidl_string::hidl_string(const hidl_string &other)
-    : buffer(const_cast<char *>(kEmptyString)),
-      length(0) {
+    : mBuffer(const_cast<char *>(kEmptyString)),
+      mSize(0),
+      mOwnsBuffer(true) {
     setTo(other.c_str(), other.size());
 }
 
@@ -51,34 +53,44 @@ hidl_string &hidl_string::operator=(const char *s) {
 hidl_string &hidl_string::setTo(const char *data, size_t size) {
     clear();
 
-    buffer = (char *)malloc(size + 1);
-    memcpy(buffer, data, size);
-    buffer[size] = '\0';
+    mBuffer = (char *)malloc(size + 1);
+    memcpy(mBuffer, data, size);
+    mBuffer[size] = '\0';
 
-    length = size;
+    mSize = size;
+    mOwnsBuffer = true;
 
     return *this;
 }
 
 void hidl_string::clear() {
-    if (buffer != kEmptyString) {
-        free(buffer);
+    if (mOwnsBuffer && (mBuffer != kEmptyString)) {
+        free(mBuffer);
     }
 
-    buffer = const_cast<char *>(kEmptyString);
-    length = 0;
+    mBuffer = const_cast<char *>(kEmptyString);
+    mSize = 0;
+    mOwnsBuffer = true;
+}
+
+void hidl_string::setToExternal(const char *data, size_t size) {
+    clear();
+
+    mBuffer = const_cast<char *>(data);
+    mSize = size;
+    mOwnsBuffer = false;
 }
 
 const char *hidl_string::c_str() const {
-    return buffer ? buffer : "";
+    return mBuffer ? mBuffer : "";
 }
 
 size_t hidl_string::size() const {
-    return length;
+    return mSize;
 }
 
 bool hidl_string::empty() const {
-    return length == 0;
+    return mSize == 0;
 }
 
 status_t hidl_string::readEmbeddedFromParcel(
@@ -86,7 +98,7 @@ status_t hidl_string::readEmbeddedFromParcel(
     const void *ptr = parcel.readEmbeddedBuffer(
             nullptr /* buffer_handle */,
             parentHandle,
-            parentOffset + offsetof(hidl_string, buffer));
+            parentOffset + offsetof(hidl_string, mBuffer));
 
     return ptr != NULL ? OK : UNKNOWN_ERROR;
 }
@@ -94,11 +106,11 @@ status_t hidl_string::readEmbeddedFromParcel(
 status_t hidl_string::writeEmbeddedToParcel(
         Parcel *parcel, size_t parentHandle, size_t parentOffset) const {
     return parcel->writeEmbeddedBuffer(
-            buffer,
-            length < 0 ? strlen(buffer) + 1 : length + 1,
+            mBuffer,
+            mSize + 1,
             nullptr /* handle */,
             parentHandle,
-            parentOffset + offsetof(hidl_string, buffer));
+            parentOffset + offsetof(hidl_string, mBuffer));
 }
 
 }  // namespace hardware

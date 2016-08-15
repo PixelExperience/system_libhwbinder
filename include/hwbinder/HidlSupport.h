@@ -36,6 +36,11 @@ struct hidl_string {
     hidl_string &operator=(const char *s);
     void clear();
 
+    // Reference an external char array. Ownership is _not_ transferred.
+    // Caller is responsible for ensuring that underlying memory is valid
+    // for the lifetime of this hidl_string.
+    void setToExternal(const char *data, size_t size);
+
     status_t readEmbeddedFromParcel(
             const Parcel &parcel, size_t parentHandle, size_t parentOffset);
 
@@ -43,8 +48,9 @@ struct hidl_string {
             Parcel *parcel, size_t parentHandle, size_t parentOffset) const;
 
 private:
-    char *buffer;
-    ptrdiff_t length;
+    char *mBuffer;
+    size_t mSize;  // NOT including the terminating '\0'.
+    bool mOwnsBuffer;
 
     hidl_string &setTo(const char *data, size_t size);
 };
@@ -74,7 +80,7 @@ struct hidl_vec {
     // Reference an existing array _WITHOUT_ taking ownership. It is the
     // caller's responsibility to ensure that the underlying memory stays
     // valid for the lifetime of this hidl_vec.
-    void setTo(T *data, size_t size) {
+    void setToExternal(T *data, size_t size) {
         if (mOwnsBuffer) {
             delete [] mBuffer;
         }
