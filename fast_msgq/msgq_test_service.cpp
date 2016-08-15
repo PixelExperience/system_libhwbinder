@@ -157,12 +157,12 @@ class TestMsgQ : public BnTestMsgQ {
     ITestMsgQ::WireMQDescriptor* wmq_desc = new ITestMsgQ::WireMQDescriptor;
     const vector<android::hardware::GrantorDescriptor>& vec_gd =
         rb_desc.getGrantors();
-    auto grantor_buf = new ITestMsgQ::WireGrantorDescriptor[vec_gd.size()];
+    wmq_desc->grantors.resize(vec_gd.size());
     for (size_t i = 0; i < vec_gd.size(); i++) {
-      grantor_buf[i] = {
+      wmq_desc->grantors[i] = {
           0, {vec_gd[i].fdIndex, vec_gd[i].offset, vec_gd[i].extent}};
     }
-    wmq_desc->grantors.setTo(grantor_buf, vec_gd.size());
+
     wmq_desc->mq_handle = (rb_desc.getHandle())->handle();
     wmq_desc->quantum = rb_desc.getQuantum();
     wmq_desc->flags = rb_desc.getFlags();
