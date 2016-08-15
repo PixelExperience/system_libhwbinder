@@ -1025,7 +1025,7 @@ status_t Parcel::writeByteArray(size_t len, const uint8_t *val) {
 
 status_t Parcel::writeBool(bool val)
 {
-    return writeInt32(int32_t(val));
+    return writeInt8(int8_t(val));
 }
 
 status_t Parcel::writeChar(char16_t val)
@@ -1826,15 +1826,22 @@ intptr_t Parcel::readIntPtr() const
 
 status_t Parcel::readBool(bool *pArg) const
 {
-    int32_t tmp;
-    status_t ret = readInt32(&tmp);
+    int8_t tmp;
+    status_t ret = readInt8(&tmp);
     *pArg = (tmp != 0);
     return ret;
 }
 
 bool Parcel::readBool() const
 {
-    return readInt32() != 0;
+    int8_t tmp;
+    status_t err = readInt8(&tmp);
+
+    if (err != OK) {
+        return 0;
+    }
+
+    return tmp != 0;
 }
 
 status_t Parcel::readChar(char16_t *pArg) const
