@@ -1350,6 +1350,7 @@ status_t Parcel::writeEmbeddedBuffer(
         binder_buffer_object *parent = reinterpret_cast<binder_buffer_object*>
                 (mData + mObjects[parent_buffer_handle]);
         if (parent->hdr.type != BINDER_TYPE_PTR ||
+                sizeof(binder_uintptr_t) > parent->length ||
                 parent_offset > parent->length - sizeof(binder_uintptr_t)) {
             // Parent object not a buffer, or not large enough
             return BAD_VALUE;
