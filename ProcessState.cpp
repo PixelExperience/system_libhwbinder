@@ -23,7 +23,6 @@
 #include <hwbinder/IPCThreadState.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
-#include <hwbinder/IServiceManager.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
 

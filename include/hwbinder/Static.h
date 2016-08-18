@@ -21,7 +21,6 @@
 
 #include <hwbinder/IBinder.h>
 #include <hwbinder/ProcessState.h>
-#include <hwbinder/IServiceManager.h>
 
 namespace android {
 namespace hardware {
@@ -32,10 +31,6 @@ extern Vector<int32_t> gTextBuffers;
 // For ProcessState.cpp
 extern Mutex gProcessMutex;
 extern sp<ProcessState> gProcess;
-
-// For IServiceManager.cpp
-extern Mutex gDefaultServiceManagerLock;
-extern sp<IServiceManager> gDefaultServiceManager;
 
 }   // namespace hardware
 }   // namespace android

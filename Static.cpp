@@ -91,10 +91,5 @@ public:
 
 static LibBinderIPCtStatics gIPCStatics;
 
-// ------------ IServiceManager.cpp
-
-Mutex gDefaultServiceManagerLock;
-sp<IServiceManager> gDefaultServiceManager;
-
 }   // namespace hardware
 }   // namespace android

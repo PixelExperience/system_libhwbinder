@@ -22,7 +22,7 @@
 #include <cutils/ashmem.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
-#include <hwbinder/IServiceManager.h>
+#include <hidl/IServiceManager.h>
 #include <hwbinder/ProcessState.h>
 #include <hwbinder/Status.h>
 #include <unistd.h>

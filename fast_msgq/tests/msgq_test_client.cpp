@@ -18,7 +18,7 @@
 #include <asm-generic/mman.h>
 #include <cutils/ashmem.h>
 #include <gtest/gtest.h>
-#include <hwbinder/IServiceManager.h>
+#include <hidl/IServiceManager.h>
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
 #include <cstdlib>

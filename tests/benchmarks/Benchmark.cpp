@@ -15,7 +15,7 @@
  */
 
 #include <benchmark/benchmark.h>
-#include <hwbinder/IServiceManager.h>
+#include <hidl/IServiceManager.h>
 #include <hwbinder/ProcessState.h>
 #include <hwbinder/Status.h>
 #include <iostream>
