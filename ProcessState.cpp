@@ -16,8 +16,6 @@
 
 #define LOG_TAG "ProcessState"
 
-#include <cutils/process_name.h>
-
 #include <hwbinder/ProcessState.h>
 
 #include <utils/Atomic.h>
