@@ -151,9 +151,7 @@ bool verifyData(uint16_t* data, int count) {
 TEST_F(MQTestClient, SmallInputReaderTest1) {
   const int data_len = 16;
   ASSERT_TRUE(data_len <= numMessagesMax);
-  int write_count = -1;
-  service->requestWrite(data_len,
-                        [&write_count](auto ret) { write_count = ret; });
+  int write_count = service->requestWrite(data_len);
   ASSERT_EQ(write_count, data_len);
   uint16_t read_data[data_len] = {};
   ASSERT_TRUE(fmsg_queue->read(read_data, data_len));
@@ -173,8 +171,7 @@ TEST_F(MQTestClient, SmallInputWriterTest1) {
     data[i] = i;
   }
   ASSERT_TRUE(fmsg_queue->write(data, data_len));
-  int read_count = -1;
-  service->requestRead(data_len, [&read_count](auto ret) { read_count = ret; });
+  int read_count = service->requestRead(data_len);
   ASSERT_EQ(read_count, data_len);
   size_t available_count = fmsg_queue->availableToWrite();
   ASSERT_EQ(original_count, available_count);
@@ -208,9 +205,7 @@ TEST_F(MQTestClient, WriteWhenFull) {
   ASSERT_TRUE(fmsg_queue->write(data, numMessagesMax));
   ASSERT_TRUE(fmsg_queue->availableToWrite() == 0);
   ASSERT_FALSE(fmsg_queue->write(data, 1));
-  int read_count = -1;
-  service->requestRead(numMessagesMax,
-                       [&read_count](auto ret) { read_count = ret; });
+  int read_count = service->requestRead(numMessagesMax);
   ASSERT_EQ(read_count, numMessagesMax);
   delete[] data;
 }
@@ -221,9 +216,7 @@ TEST_F(MQTestClient, WriteWhenFull) {
  * Read and verify data in fmsg_queue.
  */
 TEST_F(MQTestClient, LargeInputTest1) {
-  int write_count = -1;
-  service->requestWrite(numMessagesMax,
-                        [&write_count](auto ret) { write_count = ret; });
+  int write_count = service->requestWrite(numMessagesMax);
   ASSERT_EQ(write_count, numMessagesMax);
   uint16_t* read_data = new uint16_t[numMessagesMax]();
   ASSERT_TRUE(fmsg_queue->read(read_data, numMessagesMax));
@@ -240,9 +233,8 @@ TEST_F(MQTestClient, LargeInputTest2) {
   ASSERT_TRUE(fmsg_queue->availableToRead() == 0);
   const int numMessages = 2048;
   ASSERT_TRUE(numMessages > numMessagesMax);
-  int write_count = -1, expected_count = 0;
-  service->requestWrite(numMessages,
-                        [&write_count](auto ret) { write_count = ret; });
+  int write_count = service->requestWrite(numMessages);
+  int expected_count = 0;
   ASSERT_EQ(write_count, expected_count);
   uint16_t read_data;
   ASSERT_TRUE(fmsg_queue->availableToRead() == 0);
@@ -266,9 +258,7 @@ TEST_F(MQTestClient, LargeInputTest3) {
   ASSERT_TRUE(fmsg_queue->availableToWrite() == 0);
   ASSERT_FALSE(fmsg_queue->write(data, 1));
 
-  int read_count = -1;
-  service->requestRead(numMessagesMax,
-                       [&read_count](auto ret) { read_count = ret; });
+  int read_count = service->requestRead(numMessagesMax);
   ASSERT_EQ(read_count, numMessagesMax);
   delete[] data;
 }
@@ -285,9 +275,7 @@ TEST_F(MQTestClient, MultipleRead) {
   int availableToRead = fmsg_queue->availableToRead();
   int expected_count = 0;
   ASSERT_EQ(availableToRead, expected_count);
-  int write_count = 0;
-  service->requestWrite(numMessages,
-                        [&write_count](auto ret) { write_count = ret; });
+  int write_count = service->requestWrite(numMessages);
   ASSERT_EQ(write_count, numMessages);
   uint16_t read_data[numMessages] = {};
   for (int i = 0; i < chunkNum; i++) {
@@ -312,9 +300,7 @@ TEST_F(MQTestClient, MultipleWrite) {
   for (int i = 0; i < chunkNum; i++) {
     ASSERT_TRUE(fmsg_queue->write(data + i * chunkSize, chunkSize));
   }
-  int read_count = -1;
-  service->requestRead(numMessages,
-                       [&read_count](auto ret) { read_count = ret; });
+  int read_count = service->requestRead(numMessages);
   ASSERT_TRUE(read_count == numMessages);
 }
 
@@ -331,14 +317,10 @@ TEST_F(MQTestClient, ReadWriteWrapAround) {
     data[i] = i;
   }
   ASSERT_TRUE(fmsg_queue->write(data, numMessages));
-  int read_count = -1;
-  service->requestRead(numMessages,
-                       [&read_count](auto ret) { read_count = ret; });
+  int read_count = service->requestRead(numMessages);
   ASSERT_TRUE(read_count == numMessages);
   ASSERT_TRUE(fmsg_queue->write(data, numMessagesMax));
-  read_count = -1;
-  service->requestRead(numMessagesMax,
-                       [&read_count](auto ret) { read_count = ret; });
+  read_count = service->requestRead(numMessagesMax);
   ASSERT_TRUE(read_count == numMessagesMax);
   delete[] data;
 }
