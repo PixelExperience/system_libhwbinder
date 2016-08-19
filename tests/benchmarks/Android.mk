@@ -26,5 +26,6 @@ LOCAL_SHARED_LIBRARIES := libhwbinder libutils android.hardware.tests.libhwbinde
 LOCAL_C_INCLUDES := system/libhwbinder/include
 
 LOCAL_STATIC_LIBRARIES := libtestUtil
+LOCAL_COMPATIBILITY_SUITE := vts
 
 include $(BUILD_NATIVE_BENCHMARK)
