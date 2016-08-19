@@ -146,16 +146,16 @@ private:
 // For gtest output logging
 std::stringstream& operator<< (std::stringstream& stream, const Status& s);
 
-template<typename T> class SimpleReturn {
+template<typename T> class Return {
 public:
       T val;
       Status status;
 public:
-      SimpleReturn(T v) : val(v), status(Status::ok()) { }
-      SimpleReturn(Status s) : status(s) {
+      Return(T v) : val(v), status(Status::ok()) { }
+      Return(Status s) : status(s) {
           // TODO(malchev): Spew a LOG error here
       }
-      ~SimpleReturn() {
+      ~Return() {
           // TODO(malchev): Assert that status isOk() if it hasn't been checked
       }
       operator T() { return val; }
