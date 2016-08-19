@@ -45,6 +45,7 @@ using android::hardware::IInterface;
 using android::hardware::IPCThreadState;
 using android::hardware::Parcel;
 using android::hardware::ProcessState;
+using android::hardware::SimpleReturn;
 using android::hardware::Status;
 using android::hardware::hidl_version;
 using android::hardware::make_hidl_version;
@@ -86,29 +87,27 @@ class TestMsgQ : public BnTestMsgQ {
   }
 
   // TODO:: Change callback argument to bool.
-  virtual Status requestWrite(int count, ITestMsgQ::requestWrite_cb callback) {
+  virtual SimpleReturn<int32_t> requestWrite(int count) {
     uint16_t* data = new uint16_t[count];
     for (int i = 0; i < count; i++) {
       data[i] = i;
     }
     if (fmsg_queue->write(data, count)) {
-      callback(count);
-    } else {
-      callback(0);
+      delete[] data;
+      return count;
     }
     delete[] data;
-    return Status::ok();
+    return 0;
   }
   // TODO:: Change callback argument to bool.
-  virtual Status requestRead(int count, ITestMsgQ::requestRead_cb callback) {
+  virtual SimpleReturn<int32_t> requestRead(int count) {
     uint16_t* data = new uint16_t[count];
     if (fmsg_queue->read(data, count) && verifyData(data, count)) {
-      callback(count);
-    } else {
-      callback(0);
+      delete[] data;
+      return count;
     }
     delete[] data;
-    return Status::ok();
+    return 0;
   }
 
   virtual Status configure(ITestMsgQ::configure_cb callback) {

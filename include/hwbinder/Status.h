@@ -22,6 +22,7 @@
 
 #include <hwbinder/Parcel.h>
 #include <utils/String8.h>
+#include <android-base/macros.h>
 
 namespace android {
 namespace hardware {
@@ -144,6 +145,21 @@ private:
 
 // For gtest output logging
 std::stringstream& operator<< (std::stringstream& stream, const Status& s);
+
+template<typename T> class SimpleReturn {
+public:
+      T val;
+      Status status;
+public:
+      SimpleReturn(T v) : val(v), status(Status::ok()) { }
+      SimpleReturn(Status s) : status(s) {
+          // TODO(malchev): Spew a LOG error here
+      }
+      ~SimpleReturn() {
+          // TODO(malchev): Assert that status isOk() if it hasn't been checked
+      }
+      operator T() { return val; }
+};
 
 }  // namespace hardware
 }  // namespace android
