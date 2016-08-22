@@ -15,7 +15,6 @@
  */
 
 #include <benchmark/benchmark.h>
-#include <hidl/IServiceManager.h>
 #include <hwbinder/ProcessState.h>
 #include <hwbinder/Status.h>
 #include <iostream>
@@ -25,7 +24,6 @@
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
 
-#include <android/hardware/tests/libhwbinder/1.0/BnBenchmark.h>
 #include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
 
 // libutils:
@@ -52,12 +50,11 @@ using std::unique_ptr;
 using std::vector;
 
 // Generated HIDL files
-using android::hardware::tests::libhwbinder::V1_0::BnBenchmark;
 using android::hardware::tests::libhwbinder::V1_0::IBenchmark;
 
 const char gServiceName[] = "android.hardware.tests.libhwbinder.IBenchmark";
 
-class BenchmarkService : public BnBenchmark {
+class BenchmarkService : public IBenchmark {
 public:
     BenchmarkService() {}
     virtual ~BenchmarkService() = default;
@@ -67,11 +64,10 @@ public:
      };
 };
 
-bool startServer() {
+static bool startServer() {
     BenchmarkService *service = new BenchmarkService();
     hidl_version version = make_hidl_version(1,0);
-    defaultServiceManager()->addService(String16(gServiceName),
-                                        service, version);
+    service->registerAsService(String16(gServiceName), version);
     ProcessState::self()->startThreadPool();
     return 0;
 }
@@ -86,13 +82,14 @@ static void BM_sendVec(benchmark::State& state) {
     }
     hidl_version version = make_hidl_version(1,0);
     // getService automatically retries
-    status_t status = getService(String16(gServiceName), version, &service);
-    if (status != OK) {
+    service = IBenchmark::getService(String16(gServiceName), version);
+    if (service == nullptr) {
         state.SkipWithError("Failed to retrieve benchmark service.");
     }
     // Start running
     while (state.KeepRunning()) {
-       service->sendVec(data_vec);
+       service->sendVec(data_vec, [&] (auto /*res*/) {
+               });
     }
 }
 BENCHMARK(BM_sendVec)->RangeMultiplier(2)->Range(4, 65536);

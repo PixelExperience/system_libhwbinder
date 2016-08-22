@@ -18,7 +18,7 @@
 #include <map>
 
 #include <../common/MessageQueue.h>
-#include <android/hardware/tests/msgq/1.0/BnTestMsgQ.h>
+#include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
 #include <cutils/ashmem.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
@@ -60,7 +60,9 @@ using std::unique_ptr;
 using std::vector;
 
 // Generated HIDL files
-using android::hardware::tests::msgq::V1_0::BnTestMsgQ;
+using android::hardware::tests::msgq::V1_0::ITestMsgQ;
+
+const char kServiceName[] = "android.hardware.tests.msgq@1.0::ITestMsgQ";
 
 typedef uint64_t ringbuffer_position_t;
 
@@ -77,7 +79,7 @@ class BinderCallback : public LooperCallback {
   }
 };
 
-class TestMsgQ : public BnTestMsgQ {
+class TestMsgQ : public ITestMsgQ {
  public:
   TestMsgQ() : fmsg_queue(nullptr) {}
   virtual ~TestMsgQ() {
@@ -202,8 +204,7 @@ int Run() {
     return -1;
   }
   hidl_version version = android::hardware::make_hidl_version(4, 0);
-  defaultServiceManager()->addService(service->getInterfaceDescriptor(),
-                                      service, version);
+  service->registerAsService(String16(kServiceName), version);
 
   ALOGI("Entering loop");
   while (true) {
