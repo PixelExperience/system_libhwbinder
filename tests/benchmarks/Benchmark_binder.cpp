@@ -15,18 +15,18 @@
  */
 
 #include <benchmark/benchmark.h>
-#include <hidl/IServiceManager.h>
-#include <hwbinder/ProcessState.h>
-#include <hwbinder/Status.h>
-#include <iostream>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
+
+#include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
 
-#include <android/hardware/tests/libhwbinder/1.0/BnBenchmark.h>
-#include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <android/tests/binder/IBenchmark.h>
+#include <android/tests/binder/BnBenchmark.h>
 
 // libutils:
 using android::OK;
@@ -34,68 +34,62 @@ using android::sp;
 using android::status_t;
 using android::String16;
 
-// libhwbinder:
-using android::hardware::BnInterface;
-using android::hardware::defaultServiceManager;
-using android::hardware::ProcessState;
-using android::hardware::Status;
-using android::hardware::hidl_vec;
-using android::hardware::hidl_version;
-using android::hardware::make_hidl_version;
+// libbinder:
+using android::getService;
+using android::BnInterface;
+using android::defaultServiceManager;
+using android::ProcessState;
+using android::binder::Status;
 
 // Standard library
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-using std::unique_ptr;
 using std::vector;
 
-// Generated HIDL files
-using android::hardware::tests::libhwbinder::V1_0::BnBenchmark;
-using android::hardware::tests::libhwbinder::V1_0::IBenchmark;
+// Generated AIDL files
+using android::tests::binder::BnBenchmark;
+using android::tests::binder::IBenchmark;
 
-const char gServiceName[] = "android.hardware.tests.libhwbinder.IBenchmark";
+const char kServiceName[] = "android.tests.binder.IBenchmark";
 
-class BenchmarkService : public BnBenchmark {
-public:
-    BenchmarkService() {}
-    virtual ~BenchmarkService() = default;
-    Status sendVec(const ::android::hardware::hidl_vec<uint8_t>& data, sendVec_cb _hidl_cb) override {
-          _hidl_cb(data);
-          return Status::ok();
-     };
+class BenchmarkServiceAidl : public BnBenchmark {
+ public:
+    BenchmarkServiceAidl() {}
+    virtual ~BenchmarkServiceAidl() = default;
+
+    Status sendVec(const vector<uint8_t>& data, vector<uint8_t>* _aidl_return) {
+        *_aidl_return = data;
+        return Status::ok();
+    }
 };
 
 bool startServer() {
-    BenchmarkService *service = new BenchmarkService();
-    hidl_version version = make_hidl_version(1,0);
-    defaultServiceManager()->addService(String16(gServiceName),
-                                        service, version);
+    BenchmarkServiceAidl *service = new BenchmarkServiceAidl();
+    defaultServiceManager()->addService(String16(kServiceName),
+                                        service);
     ProcessState::self()->startThreadPool();
     return 0;
 }
 
-static void BM_sendVec(benchmark::State& state) {
+static void BM_sendVec_binder(benchmark::State& state) {
     sp<IBenchmark> service;
     // Prepare data to IPC
-    hidl_vec<uint8_t> data_vec;
+    vector<uint8_t> data_vec;
+    vector<uint8_t> data_return;
     data_vec.resize(state.range_x());
     for (int i = 0; i < state.range_x(); i++) {
        data_vec[i] = i % 256;
     }
-    hidl_version version = make_hidl_version(1,0);
     // getService automatically retries
-    status_t status = getService(String16(gServiceName), version, &service);
+    status_t status = getService(String16(kServiceName), &service);
     if (status != OK) {
         state.SkipWithError("Failed to retrieve benchmark service.");
     }
     // Start running
     while (state.KeepRunning()) {
-       service->sendVec(data_vec);
+       service->sendVec(data_vec, &data_return);
     }
 }
-BENCHMARK(BM_sendVec)->RangeMultiplier(2)->Range(4, 65536);
+
+BENCHMARK(BM_sendVec_binder)->RangeMultiplier(2)->Range(4, 65536);
 
 int main(int argc, char* argv []) {
     ::benchmark::Initialize(&argc, argv);

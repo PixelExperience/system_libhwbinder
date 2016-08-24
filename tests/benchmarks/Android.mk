@@ -29,3 +29,19 @@ LOCAL_STATIC_LIBRARIES := libtestUtil
 LOCAL_COMPATIBILITY_SUITE := vts
 
 include $(BUILD_NATIVE_BENCHMARK)
+
+
+# build for benchmark test based on binder.
+include $(CLEAR_VARS)
+LOCAL_MODULE := libbinder_benchmark
+
+LOCAL_MODULE_TAGS := eng tests
+
+LOCAL_SRC_FILES := Benchmark_binder.cpp
+LOCAL_SHARED_LIBRARIES := libbinder libutils android.hardware.tests.libbinder
+LOCAL_C_INCLUDES := system/libbinder/include
+
+LOCAL_STATIC_LIBRARIES := libtestUtil
+LOCAL_COMPATIBILITY_SUITE := vts
+
+include $(BUILD_NATIVE_BENCHMARK)
