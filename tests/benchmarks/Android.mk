@@ -18,6 +18,8 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libhwbinder_benchmark
+LOCAL_MODULE_STEM_64 := libhwbinder_benchmark64
+LOCAL_MODULE_STEM_32 := libhwbinder_benchmark32
 
 LOCAL_MODULE_TAGS := eng tests
 
@@ -27,6 +29,7 @@ LOCAL_C_INCLUDES := system/libhwbinder/include
 
 LOCAL_STATIC_LIBRARIES := libtestUtil
 LOCAL_COMPATIBILITY_SUITE := vts
+LOCAL_MULTILIB := both
 
 include $(BUILD_NATIVE_BENCHMARK)
 
@@ -34,6 +37,8 @@ include $(BUILD_NATIVE_BENCHMARK)
 # build for benchmark test based on binder.
 include $(CLEAR_VARS)
 LOCAL_MODULE := libbinder_benchmark
+LOCAL_MODULE_STEM_64 := libbinder_benchmark64
+LOCAL_MODULE_STEM_32 := libbinder_benchmark32
 
 LOCAL_MODULE_TAGS := eng tests
 
@@ -43,5 +48,6 @@ LOCAL_C_INCLUDES := system/libbinder/include
 
 LOCAL_STATIC_LIBRARIES := libtestUtil
 LOCAL_COMPATIBILITY_SUITE := vts
+LOCAL_MULTILIB := both
 
 include $(BUILD_NATIVE_BENCHMARK)
