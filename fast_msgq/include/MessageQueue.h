@@ -22,13 +22,14 @@
 #include <hidl/MQDescriptor.h>
 #include <sys/mman.h>
 #include <atomic>
+#include <new>
 
 namespace android {
 namespace hardware {
 
 template <typename T, MQFlavor flavor>
 struct MessageQueue {
-  /*
+  /**
    * @param Desc MQDescriptor describing the FMQ.
    * @param resetPointers bool indicating whether the read/write pointers
    * should be reset or not.
@@ -37,7 +38,7 @@ struct MessageQueue {
 
   ~MessageQueue();
 
-  /*
+  /**
    * This constructor will use Ashmem shared memory to create an FMQ
    * that can contain a maximum of numElementsInQueue elements of type T.
    *
@@ -45,45 +46,49 @@ struct MessageQueue {
    */
   MessageQueue(size_t numElementsInQueue);
 
-  /*
+  /**
    * @return Number of items of type T that can be written into the FMQ
    * without a read.
    */
   size_t availableToWrite() const;
 
-  /*
+  /**
    * @return Number of items of type T that are waiting to be read from the
    * FMQ.
    */
   size_t availableToRead() const;
 
-  /*
-   * Returns the size of type T.
+  /**
+   * Returns the size of type T in bytes.
    *
    * @param Size of T.
    */
   size_t getQuantumSize() const;
 
-  /*
+  /**
    * Returns the size of the FMQ in terms of the size of type T.
    *
    * @return Number of items of type T that will fit in the FMQ.
    */
   size_t getQuantumCount() const;
 
-  /*
+  /**
    * @return Whether the FMQ is configured correctly.
    */
   bool isValid() const;
 
-  /*
+  /**
+   * Non-blocking write to FMQ.
+   *
    * @param data Pointer to the object of type T to be written into the FMQ.
    *
    * @return Whether the write was successful.
    */
   bool write(const T* data);
 
-  /*
+  /**
+   * Non-blocking read from FMQ.
+   *
    * @param data Pointer to the memory where the object read from the FMQ is
    * copied to.
    *
@@ -91,8 +96,8 @@ struct MessageQueue {
    */
   bool read(T* data);
 
-  /*
-   * Write some data into the FMQ.
+  /**
+   * Write some data into the FMQ without blocking.
    *
    * @param data Pointer to the array of items of type T.
    * @param count Number of items in array.
@@ -101,8 +106,8 @@ struct MessageQueue {
    */
   bool write(const T* data, size_t count);
 
-  /*
-   * Read some data from the FMQ.
+  /**
+   * Read some data from the FMQ without blocking.
    *
    * @param data Pointer to the array to which read data is to be written.
    * @param count Number of items to be read.
@@ -111,7 +116,7 @@ struct MessageQueue {
    */
   bool read(T* data, size_t count);
 
-  /*
+  /**
    * Get a pointer to the MQDescriptor object that describes this FMQ.
    *
    * @return Pointer to the MQDescriptor associated with the FMQ.
@@ -177,7 +182,7 @@ void MessageQueue<T, flavor>::initMemory(bool resetPointers) {
      * The unsynchronized write flavor of the FMQ may have multiple readers
      * and each reader would have their own read pointer counter.
      */
-    mReadPtr = new std::atomic<uint64_t>;
+    mReadPtr = new (std::nothrow) std::atomic<uint64_t>;
   }
   CHECK(mReadPtr != nullptr);
 
@@ -202,7 +207,11 @@ void MessageQueue<T, flavor>::initMemory(bool resetPointers) {
 template <typename T, MQFlavor flavor>
 MessageQueue<T, flavor>::MessageQueue(
     const MQDescriptor<flavor>& Desc, bool resetPointers) {
-  mDesc = std::unique_ptr<MQDescriptor<flavor>>(new MQDescriptor<flavor>(Desc));
+  mDesc = std::unique_ptr<MQDescriptor<flavor>>(new (std::nothrow) MQDescriptor<flavor>(Desc));
+  if (mDesc == nullptr) {
+    return;
+  }
+
   initMemory(resetPointers);
 }
 
@@ -231,10 +240,16 @@ MessageQueue<T, flavor>::MessageQueue(size_t numElementsInQueue) {
    */
   native_handle_t* mq_handle =
       native_handle_create(1 /* numFds */, 0 /* numInts */);
-  if (mq_handle == nullptr) return;
+  if (mq_handle == nullptr) {
+    return;
+  }
+
   mq_handle->data[0] = ashmemFd;
   mDesc = std::unique_ptr<MQDescriptor<flavor>>(
-      new MQDescriptor<flavor>(kQueueSizeBytes, mq_handle, sizeof(T)));
+      new (std::nothrow) MQDescriptor<flavor>(kQueueSizeBytes, mq_handle, sizeof(T)));
+  if (mDesc == nullptr) {
+    return;
+  }
   initMemory(true);
 }
 
