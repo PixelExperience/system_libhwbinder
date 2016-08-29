@@ -17,6 +17,7 @@
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
 #include <asm-generic/mman.h>
 #include <cutils/ashmem.h>
+#include <fmq/MessageQueue.h>
 #include <gtest/gtest.h>
 #include <hidl/IServiceManager.h>
 #include <utils/String16.h>
@@ -24,7 +25,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
-#include "../common/MessageQueue.h"
 
 // libutils:
 using android::OK;

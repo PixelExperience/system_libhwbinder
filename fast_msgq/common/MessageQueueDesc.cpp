@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "MessageQueueDesc.h"
+#include <fmq/MessageQueueDesc.h>
 
 namespace android {
 namespace hardware {
