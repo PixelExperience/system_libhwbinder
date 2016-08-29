@@ -64,14 +64,24 @@ struct binder_buffer_object {
 	struct binder_object_header	hdr;
 	__u32				flags;
 
-	binder_uintptr_t		buffer; /* Pointer to buffer data */
-	binder_size_t			length; /* Length of the buffer data */
+	union {
+		struct {
+			binder_uintptr_t   buffer; /* Pointer to buffer data */
+			binder_size_t      length; /* Length of the buffer data */
+		};
+		struct {
+			binder_size_t      child;        /* index of child in objects array */
+			binder_size_t      child_offset; /* byte offset in child buffer */
+		};
+	};
 	binder_size_t			parent; /* index of parent in objects array */
 	binder_size_t			parent_offset; /* byte offset of pointer in parent buffer */
 };
 
 enum {
-	BINDER_BUFFER_HAS_PARENT = 0x01,
+	BINDER_BUFFER_HAS_PARENT   = 1U << 0,
+	BINDER_BUFFER_REF          = 1U << 1,
+	BINDER_BUFFER_NULLPTR      = 1U << 2,
 };
 
 /* A binder_fd_array object represents an array of file
