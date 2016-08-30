@@ -30,6 +30,8 @@
 #include <utils/Looper.h>
 #include <utils/StrongPointer.h>
 
+#include <sys/mman.h>
+
 // libutils:
 using android::Looper;
 using android::LooperCallback;
@@ -119,7 +121,9 @@ class TestMsgQ : public ITestMsgQ {
     native_handle_t* mq_handle = native_handle_create(1, 0);
     if (!mq_handle) {
       ALOGE("Unable to create native_handle_t");
-      callback(-1, ITestMsgQ::WireMQDescriptor());
+      callback(-1, android::hardware::MQDescriptor(
+                       std::vector<android::hardware::GrantorDescriptor>(),
+                       nullptr, 0, 0));
       return Void();
     }
 
@@ -144,9 +148,7 @@ class TestMsgQ : public ITestMsgQ {
       delete fmsg_queue;
     }
     fmsg_queue = new android::hardware::MessageQueue<uint16_t>(mydesc);
-    ITestMsgQ::WireMQDescriptor* wmsgq_desc = CreateWireMQDescriptor(mydesc);
-    callback(0, *wmsgq_desc);
-    delete wmsgq_desc;
+    callback(0, mydesc);
     return Void();
   }
   android::hardware::MessageQueue<uint16_t>* fmsg_queue;
@@ -161,26 +163,6 @@ class TestMsgQ : public ITestMsgQ {
     }
 
     return true;
-  }
-
-  /*
-   * Create WireMQDescriptor from MQDescriptor.
-   */
-  ITestMsgQ::WireMQDescriptor* CreateWireMQDescriptor(
-      android::hardware::MQDescriptor& rb_desc) {
-    ITestMsgQ::WireMQDescriptor* wmq_desc = new ITestMsgQ::WireMQDescriptor;
-    const vector<android::hardware::GrantorDescriptor>& vec_gd =
-        rb_desc.getGrantors();
-    wmq_desc->grantors.resize(vec_gd.size());
-    for (size_t i = 0; i < vec_gd.size(); i++) {
-      wmq_desc->grantors[i] = {
-          0, {vec_gd[i].fdIndex, vec_gd[i].offset, vec_gd[i].extent}};
-    }
-
-    wmq_desc->mq_handle = (rb_desc.getHandle())->handle();
-    wmq_desc->quantum = rb_desc.getQuantum();
-    wmq_desc->flags = rb_desc.getFlags();
-    return wmq_desc;
   }
 };
 

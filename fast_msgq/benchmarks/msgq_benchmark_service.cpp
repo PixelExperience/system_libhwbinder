@@ -29,6 +29,7 @@
 #include <utils/StrongPointer.h>
 #include <iostream>
 #include <thread>
+#include <sys/mman.h>
 
 // libutils:
 using android::Looper;
@@ -248,11 +249,12 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
     if (fmsg_queue_inbox_) delete fmsg_queue_inbox_;
     fmsg_queue_inbox_ = CreateMessageQueue(ashmemFd, kQueueSize);
-
-    IBenchmarkMsgQ::WireMQDescriptor* wmsgq_desc =
-        CreateWireMQDescriptor(*fmsg_queue_inbox_->getDesc());
-    callback(*wmsgq_desc);
-    delete wmsgq_desc;
+    if (fmsg_queue_outbox_ == nullptr) {
+      callback(-1, android::hardware::MQDescriptor(
+                       std::vector<android::hardware::GrantorDescriptor>(),
+                       nullptr, 0, 0));
+    }
+    callback(0, *fmsg_queue_inbox_->getDesc());
     return Void();
   }
   /*
@@ -265,41 +267,18 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
 
     if (fmsg_queue_outbox_) delete fmsg_queue_outbox_;
     fmsg_queue_outbox_ = CreateMessageQueue(ashmemFd, kQueueSize);
-
-    IBenchmarkMsgQ::WireMQDescriptor* wmsgq_desc =
-        CreateWireMQDescriptor(*fmsg_queue_outbox_->getDesc());
-    callback(*wmsgq_desc);
-    delete wmsgq_desc;
+    if (fmsg_queue_outbox_ == nullptr) {
+      callback(-1, android::hardware::MQDescriptor(
+                       std::vector<android::hardware::GrantorDescriptor>(),
+                       nullptr, 0, 0));
+    }
+    callback(0, *fmsg_queue_outbox_->getDesc());
     return Void();
   }
 
   android::hardware::MessageQueue<uint8_t>* fmsg_queue_inbox_;
   android::hardware::MessageQueue<uint8_t>* fmsg_queue_outbox_;
   int64_t* time_data_;
-
- private:
-  /*
-   * Create WireMQDescriptor from MQDescriptor.
-   * TODO: This code will move into the MessageQueue class shortly.
-   */
-  IBenchmarkMsgQ::WireMQDescriptor* CreateWireMQDescriptor(
-      const android::hardware::MQDescriptor& rb_desc) {
-    IBenchmarkMsgQ::WireMQDescriptor* wmq_desc =
-        new IBenchmarkMsgQ::WireMQDescriptor;
-    const vector<android::hardware::GrantorDescriptor>& vec_gd =
-        rb_desc.getGrantors();
-    wmq_desc->grantors.resize(vec_gd.size());
-    for (size_t i = 0; i < vec_gd.size(); i++) {
-      wmq_desc->grantors[i] = {
-          0, {vec_gd[i].fdIndex, vec_gd[i].offset, vec_gd[i].extent}};
-    }
-
-    wmq_desc->mq_handle = (rb_desc.getHandle())->handle();
-    wmq_desc->quantum = rb_desc.getQuantum();
-    wmq_desc->flags = rb_desc.getFlags();
-
-    return wmq_desc;
-  }
 };
 
 int Run() {

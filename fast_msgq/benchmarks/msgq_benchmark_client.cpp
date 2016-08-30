@@ -78,18 +78,22 @@ class MQTestClient : public ::testing::Test {
     /*
      * Request service to configure the client inbox queue.
      */
-    service->ConfigureClientInbox(
-        [this](const IBenchmarkMsgQ::WireMQDescriptor& in) {
-          CreateMQFromWireMQDescriptor(&this->fmsg_queue_inbox_, &in);
+   service->ConfigureClientInbox([this](int32_t bad, const MQDescriptor& in) {
+          if (!bad) {
+            fmsg_queue_inbox_ = new MessageQueue<uint8_t>(in);
+          }
         });
+
     ASSERT_TRUE(fmsg_queue_inbox_ != nullptr);
     ASSERT_TRUE(fmsg_queue_inbox_->isValid());
     /*
      * Reqeust service to configure the client outbox queue.
      */
     service->ConfigureClientOutbox(
-        [this](const IBenchmarkMsgQ::WireMQDescriptor& out) {
-          CreateMQFromWireMQDescriptor(&this->fmsg_queue_outbox_, &out);
+        [this](int32_t bad, const MQDescriptor& out) {
+          if (!bad) {
+           fmsg_queue_outbox_ = new MessageQueue<uint8_t>(out);
+          }
         });
 
     ASSERT_TRUE(fmsg_queue_outbox_ != nullptr);
@@ -98,52 +102,6 @@ class MQTestClient : public ::testing::Test {
   sp<IBenchmarkMsgQ> service;
   android::hardware::MessageQueue<uint8_t>* fmsg_queue_inbox_ = nullptr;
   android::hardware::MessageQueue<uint8_t>* fmsg_queue_outbox_ = nullptr;
-
- private:
-  /*
-   * TODO:The following code will move into the MessageQueue class
-   * shortly.
-   */
-  void CreateMQFromWireMQDescriptor(
-      android::hardware::MessageQueue<uint8_t>** fmsg_queue,
-      const IBenchmarkMsgQ::WireMQDescriptor* wmq_desc) {
-    if ((wmq_desc == nullptr) || (wmq_desc->mq_handle == nullptr) ||
-        (wmq_desc->mq_handle == nullptr)) {
-      std::cout << "Bad WireMQDescriptor" << std::endl;
-      return;
-    }
-    /*
-     * Create a copy of the native handle from the WireMQDescriptor.
-     */
-    native_handle_t* mq_handle = native_handle_create(
-        wmq_desc->mq_handle->numFds, wmq_desc->mq_handle->numInts);
-    if (mq_handle == nullptr) return;
-    for (int i = 0; i < wmq_desc->mq_handle->numFds; i++)
-      mq_handle->data[i] = wmq_desc->mq_handle->data[i];
-    memcpy(&mq_handle->data[mq_handle->numFds],
-           &wmq_desc->mq_handle->data[mq_handle->numFds],
-           mq_handle->numInts * sizeof(int));
-    /*
-     * Create the vector of GrantorDescriptors.
-     */
-    std::vector<android::hardware::GrantorDescriptor> Grantors(
-        MINIMUM_GRANTOR_COUNT);
-    Grantors[android::hardware::READPTRPOS] = {
-        0, wmq_desc->grantors[android::hardware::READPTRPOS].shm.fdIndex,
-        wmq_desc->grantors[android::hardware::READPTRPOS].shm.offset,
-        wmq_desc->grantors[android::hardware::READPTRPOS].shm.extent};
-    Grantors[android::hardware::WRITEPTRPOS] = {
-        0, wmq_desc->grantors[android::hardware::WRITEPTRPOS].shm.fdIndex,
-        wmq_desc->grantors[android::hardware::WRITEPTRPOS].shm.offset,
-        wmq_desc->grantors[android::hardware::WRITEPTRPOS].shm.extent};
-    Grantors[android::hardware::DATAPTRPOS] = {
-        0, wmq_desc->grantors[android::hardware::DATAPTRPOS].shm.fdIndex,
-        wmq_desc->grantors[android::hardware::DATAPTRPOS].shm.offset,
-        wmq_desc->grantors[android::hardware::DATAPTRPOS].shm.extent};
-    android::hardware::MQDescriptor mq_desc(Grantors, mq_handle, 0,
-                                            sizeof(uint8_t));
-    *fmsg_queue = new android::hardware::MessageQueue<uint8_t>(mq_desc);
-  }
 };
 
 /*
