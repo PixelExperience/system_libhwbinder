@@ -46,17 +46,23 @@ inline sp<INTERFACE> interface_cast(const sp<IBinder>& obj)
 
 // ----------------------------------------------------------------------
 
-template<typename INTERFACE>
-class BnInterface : public INTERFACE, public BBinder
+template<typename INTERFACE, typename HWINTERFACE>
+class BnInterface : public HWINTERFACE, public BBinder
 {
 public:
+                                BnInterface(const sp<INTERFACE>& impl);
     virtual sp<IInterface>      queryLocalInterface(const String16& _descriptor);
     virtual const String16&     getInterfaceDescriptor() const;
-
 protected:
+    const sp<INTERFACE>         mImpl;
     virtual IBinder*            onAsBinder();
 };
 
+template<typename INTERFACE, typename HWINTERFACE>
+inline BnInterface<INTERFACE, HWINTERFACE>::BnInterface(
+        const sp<INTERFACE>& impl) : mImpl(impl)
+{
+}
 // ----------------------------------------------------------------------
 
 template<typename INTERFACE>
@@ -73,36 +79,32 @@ protected:
 
 #define DECLARE_HWBINDER_META_INTERFACE(INTERFACE)                          \
     static const ::android::String16 descriptor;                            \
-    static ::android::sp<I##INTERFACE> asInterface(                         \
+    static ::android::sp<IHw##INTERFACE> asInterface(                       \
             const ::android::sp<::android::hardware::IBinder>& obj);        \
     virtual const ::android::String16& getInterfaceDescriptor() const;      \
-    I##INTERFACE();                                                         \
-    virtual ~I##INTERFACE();                                                \
 
 
 #define IMPLEMENT_HWBINDER_META_INTERFACE(INTERFACE, NAME)                  \
-    const ::android::String16 I##INTERFACE::descriptor(NAME);               \
+    const ::android::String16 IHw##INTERFACE::descriptor(NAME);             \
     const ::android::String16&                                              \
-            I##INTERFACE::getInterfaceDescriptor() const {                  \
-        return I##INTERFACE::descriptor;                                    \
+            IHw##INTERFACE::getInterfaceDescriptor() const {                \
+        return IHw##INTERFACE::descriptor;                                  \
     }                                                                       \
-    ::android::sp<I##INTERFACE> I##INTERFACE::asInterface(                  \
+    ::android::sp<IHw##INTERFACE> IHw##INTERFACE::asInterface(              \
             const ::android::sp<::android::hardware::IBinder>& obj)         \
     {                                                                       \
-        ::android::sp<I##INTERFACE> intr;                                   \
+        ::android::sp<IHw##INTERFACE> intr;                                 \
         if (obj != NULL) {                                                  \
-            intr = static_cast<I##INTERFACE*>(                              \
+            /* Check if local interface */                                  \
+            intr = static_cast<IHw##INTERFACE*>(                            \
                 obj->queryLocalInterface(                                   \
-                        I##INTERFACE::descriptor).get());                   \
+                        IHw##INTERFACE::descriptor).get());                 \
             if (intr == NULL) {                                             \
                 intr = new Bp##INTERFACE(obj);                              \
             }                                                               \
         }                                                                   \
         return intr;                                                        \
-    }                                                                       \
-    I##INTERFACE::I##INTERFACE() { }                                        \
-    I##INTERFACE::~I##INTERFACE() { }                                       \
-
+    }
 
 #define CHECK_HWBINDER_INTERFACE(interface, data, reply)                \
     if (!data.checkInterface(this)) { return PERMISSION_DENIED; }       \
@@ -111,22 +113,22 @@ protected:
 // ----------------------------------------------------------------------
 // No user-serviceable parts after this...
 
-template<typename INTERFACE>
-inline sp<IInterface> BnInterface<INTERFACE>::queryLocalInterface(
+template<typename INTERFACE, typename HWINTERFACE>
+inline sp<IInterface> BnInterface<INTERFACE, HWINTERFACE>::queryLocalInterface(
         const String16& _descriptor)
 {
-    if (_descriptor == INTERFACE::descriptor) return this;
+    if (_descriptor == HWINTERFACE::descriptor) return this;
     return NULL;
 }
 
-template<typename INTERFACE>
-inline const String16& BnInterface<INTERFACE>::getInterfaceDescriptor() const
+template<typename INTERFACE, typename HWINTERFACE>
+inline const String16& BnInterface<INTERFACE, HWINTERFACE>::getInterfaceDescriptor() const
 {
-    return INTERFACE::getInterfaceDescriptor();
+    return HWINTERFACE::descriptor;
 }
 
-template<typename INTERFACE>
-IBinder* BnInterface<INTERFACE>::onAsBinder()
+template<typename INTERFACE, typename HWINTERFACE>
+IBinder* BnInterface<INTERFACE, HWINTERFACE>::onAsBinder()
 {
     return this;
 }

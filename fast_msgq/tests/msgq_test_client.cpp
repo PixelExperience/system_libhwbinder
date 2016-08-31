@@ -52,16 +52,6 @@ namespace client {
 
 const char kServiceName[] = "android.hardware.tests.msgq@1.0::ITestMsgQ";
 
-bool GetService(sp<ITestMsgQ>* service, hidl_version version) {
-  status_t status = getService(String16(kServiceName), version, service);
-  if (status != OK) {
-    cerr << "Failed to get service binder: '" << kServiceName
-         << "' status=" << status << endl;
-    return false;
-  }
-  return true;
-}
-
 }  // namespace client
 }  // namespace tests
 }  // namespace hardware
@@ -79,7 +69,8 @@ class MQTestClient : public ::testing::Test {
     namespace client_tests = android::hardware::tests::client;
 
     hidl_version version = make_hidl_version(4, 0);
-    if (!client_tests::GetService(&service, version)) return;
+    service = ITestMsgQ::getService(String16(client_tests::kServiceName), version);
+    if (service == nullptr) return;
     service->configure([this](const ITestMsgQ::WireMQDescriptor& in) {
       create_mq_from_wiremqdesc(&this->fmsg_queue, &in);
     });

@@ -15,7 +15,7 @@
 */
 
 #include <../common/MessageQueue.h>
-#include <android/hardware/benchmarks/msgq/1.0/BnBenchmarkMsgQ.h>
+#include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
 #include <cutils/ashmem.h>
 #include <hidl/IServiceManager.h>
 #include <hwbinder/IInterface.h>
@@ -38,7 +38,6 @@ using android::sp;
 using android::String16;
 
 // libhwbinder:
-using android::hardware::BnInterface;
 using android::hardware::defaultServiceManager;
 using android::hardware::IInterface;
 using android::hardware::IPCThreadState;
@@ -58,7 +57,7 @@ using std::vector;
 
 // Generated HIDL files
 
-using android::hardware::benchmarks::msgq::V1_0::BnBenchmarkMsgQ;
+using android::hardware::benchmarks::msgq::V1_0::IBenchmarkMsgQ;
 
 typedef uint64_t RingBufferPosition;
 /*
@@ -82,6 +81,9 @@ enum PacketSizes {
  */
 
 const size_t kAshmemSize = 20 * 1024;
+
+const char kServiceName[] =
+    "android.hardware.benchmarks.msgq@1.0::IBenchmarkMsgQ";
 
 namespace {
 /*
@@ -134,7 +136,7 @@ class BinderCallback : public LooperCallback {
   }
 };
 
-class BenchmarkMsgQ : public BnBenchmarkMsgQ {
+class BenchmarkMsgQ : public IBenchmarkMsgQ {
  public:
   BenchmarkMsgQ()
       : fmsg_queue_inbox_(nullptr),
@@ -318,8 +320,7 @@ int Run() {
     return -1;
   }
   hidl_version version = android::hardware::make_hidl_version(4, 0);
-  defaultServiceManager()->addService(service->getInterfaceDescriptor(),
-                                      service, version);
+  service->registerAsService(String16(kServiceName), version);
 
   ALOGI("Entering loop");
   while (true) {

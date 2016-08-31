@@ -36,7 +36,6 @@ using android::status_t;
 using android::String16;
 
 // libbinder:
-using android::hardware::getService;
 using android::hardware::hidl_version;
 using android::hardware::make_hidl_version;
 
@@ -69,28 +68,8 @@ enum PacketSizes {
   kPacketSize1024 = 1024
 };
 
-namespace android {
-namespace hardware {
-namespace benchmarks {
-namespace client {
-
 const char kServiceName[] =
     "android.hardware.benchmarks.msgq@1.0::IBenchmarkMsgQ";
-
-bool GetService(sp<IBenchmarkMsgQ>* service, hidl_version version) {
-  status_t status = getService(String16(kServiceName), version, service);
-  if (status != OK) {
-    cerr << "Failed to get service binder: '" << kServiceName
-         << "' status=" << status << endl;
-    return false;
-  }
-  return true;
-}
-
-}  // namespace client
-}  // namespace benchmarks
-}  // namespace hardware
-}  // namespace android
 
 class MQTestClient : public ::testing::Test {
  protected:
@@ -100,10 +79,9 @@ class MQTestClient : public ::testing::Test {
   }
 
   virtual void SetUp() {
-    namespace client_benchmarks = android::hardware::benchmarks::client;
-
     hidl_version version = make_hidl_version(4, 0);
-    if (!client_benchmarks::GetService(&service, version)) return;
+    service = IBenchmarkMsgQ::getService(String16(kServiceName), version);
+    if (service == nullptr) return;
     /*
      * Request service to configure the client inbox queue.
      */
