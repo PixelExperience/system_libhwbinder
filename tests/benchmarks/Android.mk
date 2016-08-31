@@ -28,7 +28,6 @@ LOCAL_SHARED_LIBRARIES := libhwbinder libhidl libutils android.hardware.tests.li
 LOCAL_C_INCLUDES := system/libhwbinder/include
 
 LOCAL_STATIC_LIBRARIES := libtestUtil
-LOCAL_COMPATIBILITY_SUITE := vts
 LOCAL_MULTILIB := both
 
 include $(BUILD_NATIVE_BENCHMARK)
@@ -47,7 +46,6 @@ LOCAL_SHARED_LIBRARIES := libbinder libutils android.hardware.tests.libbinder
 LOCAL_C_INCLUDES := system/libbinder/include
 
 LOCAL_STATIC_LIBRARIES := libtestUtil
-LOCAL_COMPATIBILITY_SUITE := vts
 LOCAL_MULTILIB := both
 
 include $(BUILD_NATIVE_BENCHMARK)
