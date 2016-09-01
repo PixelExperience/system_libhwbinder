@@ -203,10 +203,6 @@ public:
     status_t            writeEmbeddedNativeHandle(const native_handle_t *handle,
                             size_t parent_buffer_handle, size_t parent_offset);
     status_t            writeNativeHandleNoDup(const native_handle* handle);
-    // Like Parcel.java's writeNoException().  Just writes a zero int32.
-    // Currently the native implementation doesn't do any of the StrictMode
-    // stack gathering and serialization that the Java implementation does.
-    status_t            writeNoException();
 
     void                remove(size_t start, size_t amt);
     
@@ -283,13 +279,6 @@ public:
     status_t            readUtf8VectorFromUtf16Vector(
                             std::unique_ptr<std::vector<std::unique_ptr<std::string>>>* val) const;
     status_t            readUtf8VectorFromUtf16Vector(std::vector<std::string>* val) const;
-
-    // Like Parcel.java's readExceptionCode().  Reads the first int32
-    // off of a Parcel's header, returning 0 or the negative error
-    // code on exceptions, but also deals with skipping over rich
-    // response headers.  Callers should use this to read & parse the
-    // response headers rather than doing it by hand.
-    int32_t             readExceptionCode() const;
 
     // Retrieve native_handle from the parcel. This returns a copy of the
     // parcel's native_handle (the caller takes ownership). The caller

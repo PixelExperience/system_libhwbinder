@@ -34,7 +34,6 @@ LOCAL_SRC_FILES := \
 	Parcel.cpp \
 	ProcessState.cpp \
 	Static.cpp \
-	Status.cpp \
 	TextOutput.cpp
 
 ifneq ($(TARGET_USES_64_BIT_BINDER),true)

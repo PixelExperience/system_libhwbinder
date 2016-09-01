@@ -35,7 +35,6 @@
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/Parcel.h>
 #include <hwbinder/ProcessState.h>
-#include <hwbinder/Status.h>
 #include <hwbinder/TextOutput.h>
 
 #include <cutils/ashmem.h>
@@ -1380,12 +1379,6 @@ status_t Parcel::writeEmbeddedNativeHandle(const native_handle_t *handle,
     return writeObject(fd_array, true /* nullMetaData */);
 }
 
-status_t Parcel::writeNoException()
-{
-    Status status;
-    return status.writeToParcel(this);
-}
-
 void Parcel::remove(size_t /*start*/, size_t /*amt*/)
 {
     LOG_ALWAYS_FATAL("Parcel::remove() not yet implemented!");
@@ -1996,13 +1989,6 @@ wp<IBinder> Parcel::readWeakBinder() const
     wp<IBinder> val;
     unflatten_binder(ProcessState::self(), *this, &val);
     return val;
-}
-
-int32_t Parcel::readExceptionCode() const
-{
-    Status status;
-    status.readFromParcel(*this);
-    return status.exceptionCode();
 }
 
 native_handle* Parcel::readNativeHandle() const
