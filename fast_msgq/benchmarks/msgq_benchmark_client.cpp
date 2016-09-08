@@ -33,10 +33,6 @@ using android::OK;
 using android::sp;
 using android::status_t;
 
-// libbinder:
-using android::hardware::hidl_version;
-using android::hardware::make_hidl_version;
-
 // generated
 using android::hardware::benchmarks::msgq::V1_0::IBenchmarkMsgQ;
 using std::cerr;
@@ -77,8 +73,7 @@ class MQTestClient : public ::testing::Test {
   }
 
   virtual void SetUp() {
-    hidl_version version = make_hidl_version(4, 0);
-    service = IBenchmarkMsgQ::getService(kServiceName, version);
+    service = IBenchmarkMsgQ::getService(kServiceName);
     if (service == nullptr) return;
     /*
      * Request service to configure the client inbox queue.

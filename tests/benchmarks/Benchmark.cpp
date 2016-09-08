@@ -37,8 +37,6 @@ using android::hardware::ProcessState;
 using android::hardware::Return;
 using android::hardware::Void;
 using android::hardware::hidl_vec;
-using android::hardware::hidl_version;
-using android::hardware::make_hidl_version;
 
 // Standard library
 using std::cerr;
@@ -65,8 +63,7 @@ public:
 
 static bool startServer() {
     BenchmarkService *service = new BenchmarkService();
-    hidl_version version = make_hidl_version(1,0);
-    service->registerAsService(gServiceName, version);
+    service->registerAsService(gServiceName);
     ProcessState::self()->startThreadPool();
     return 0;
 }
@@ -79,9 +76,8 @@ static void BM_sendVec(benchmark::State& state) {
     for (int i = 0; i < state.range_x(); i++) {
        data_vec[i] = i % 256;
     }
-    hidl_version version = make_hidl_version(1,0);
     // getService automatically retries
-    service = IBenchmark::getService(gServiceName, version);
+    service = IBenchmark::getService(gServiceName);
     if (service == nullptr) {
         state.SkipWithError("Failed to retrieve benchmark service.");
     }

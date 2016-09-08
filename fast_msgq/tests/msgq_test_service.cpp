@@ -46,8 +46,6 @@ using android::hardware::Parcel;
 using android::hardware::ProcessState;
 using android::hardware::Return;
 using android::hardware::Void;
-using android::hardware::hidl_version;
-using android::hardware::make_hidl_version;
 
 // Standard library
 using std::cerr;
@@ -203,8 +201,7 @@ int Run() {
     ALOGE("Failed to add binder FD to Looper");
     return -1;
   }
-  hidl_version version = android::hardware::make_hidl_version(4, 0);
-  service->registerAsService(kServiceName, version);
+  service->registerAsService(kServiceName);
 
   ALOGI("Entering loop");
   while (true) {
