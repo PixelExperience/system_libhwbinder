@@ -36,7 +36,8 @@ using android::String16;
 using android::hardware::BnInterface;
 using android::hardware::defaultServiceManager;
 using android::hardware::ProcessState;
-using android::hardware::Status;
+using android::hardware::Return;
+using android::hardware::Void;
 using android::hardware::hidl_vec;
 using android::hardware::hidl_version;
 using android::hardware::make_hidl_version;
@@ -58,9 +59,9 @@ class BenchmarkService : public IBenchmark {
 public:
     BenchmarkService() {}
     virtual ~BenchmarkService() = default;
-    Status sendVec(const ::android::hardware::hidl_vec<uint8_t>& data, sendVec_cb _hidl_cb) override {
+    Return<void> sendVec(const ::android::hardware::hidl_vec<uint8_t>& data, sendVec_cb _hidl_cb) override {
           _hidl_cb(data);
-          return Status::ok();
+          return Void();
      };
 };
 
