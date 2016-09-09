@@ -30,10 +30,6 @@ using android::OK;
 using android::sp;
 using android::status_t;
 
-// libbinder:
-using android::hardware::hidl_version;
-using android::hardware::make_hidl_version;
-
 // generated
 using android::hardware::tests::msgq::V1_0::ITestMsgQ;
 using std::cerr;
@@ -65,8 +61,7 @@ class MQTestClient : public ::testing::Test {
   virtual void SetUp() {
     namespace client_tests = android::hardware::tests::client;
 
-    hidl_version version = make_hidl_version(4, 0);
-    service = ITestMsgQ::getService(client_tests::kServiceName, version);
+    service = ITestMsgQ::getService(client_tests::kServiceName);
     if (service == nullptr) return;
     service->configure([this](int32_t bad, const ITestMsgQ::WireMQDescriptor& in) {
       if (!bad) {

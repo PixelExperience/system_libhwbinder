@@ -42,10 +42,9 @@ using android::hardware::IInterface;
 using android::hardware::IPCThreadState;
 using android::hardware::Parcel;
 using android::hardware::ProcessState;
-using android::hardware::hidl_version;
-using android::hardware::make_hidl_version;
 using android::hardware::Return;
 using android::hardware::Void;
+
 // Standard library
 using std::cerr;
 using std::cout;
@@ -318,8 +317,7 @@ int Run() {
     ALOGE("Failed to add binder FD to Looper");
     return -1;
   }
-  hidl_version version = android::hardware::make_hidl_version(4, 0);
-  service->registerAsService(kServiceName, version);
+  service->registerAsService(kServiceName);
 
   ALOGI("Entering loop");
   while (true) {
