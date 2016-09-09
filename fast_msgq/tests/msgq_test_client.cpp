@@ -20,7 +20,6 @@
 #include <fmq/MessageQueue.h>
 #include <gtest/gtest.h>
 #include <hidl/IServiceManager.h>
-#include <utils/String16.h>
 #include <utils/StrongPointer.h>
 #include <cstdlib>
 #include <iostream>
@@ -30,10 +29,8 @@
 using android::OK;
 using android::sp;
 using android::status_t;
-using android::String16;
 
 // libbinder:
-using android::hardware::getService;
 using android::hardware::hidl_version;
 using android::hardware::make_hidl_version;
 
@@ -69,7 +66,7 @@ class MQTestClient : public ::testing::Test {
     namespace client_tests = android::hardware::tests::client;
 
     hidl_version version = make_hidl_version(4, 0);
-    service = ITestMsgQ::getService(String16(client_tests::kServiceName), version);
+    service = ITestMsgQ::getService(client_tests::kServiceName, version);
     if (service == nullptr) return;
     service->configure([this](int32_t bad, const ITestMsgQ::WireMQDescriptor& in) {
       if (!bad) {

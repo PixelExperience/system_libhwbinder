@@ -21,7 +21,6 @@
 #include <fmq/MessageQueue.h>
 #include <gtest/gtest.h>
 #include <hidl/IServiceManager.h>
-#include <utils/String16.h>
 #include <utils/StrongPointer.h>
 #include <chrono>
 #include <cstdlib>
@@ -33,7 +32,6 @@
 using android::OK;
 using android::sp;
 using android::status_t;
-using android::String16;
 
 // libbinder:
 using android::hardware::hidl_version;
@@ -80,7 +78,7 @@ class MQTestClient : public ::testing::Test {
 
   virtual void SetUp() {
     hidl_version version = make_hidl_version(4, 0);
-    service = IBenchmarkMsgQ::getService(String16(kServiceName), version);
+    service = IBenchmarkMsgQ::getService(kServiceName, version);
     if (service == nullptr) return;
     /*
      * Request service to configure the client inbox queue.
