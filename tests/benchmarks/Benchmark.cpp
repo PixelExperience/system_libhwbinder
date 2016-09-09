@@ -21,7 +21,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <utils/String16.h>
 #include <utils/StrongPointer.h>
 
 #include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
@@ -30,7 +29,6 @@
 using android::OK;
 using android::sp;
 using android::status_t;
-using android::String16;
 
 // libhwbinder:
 using android::hardware::BnInterface;
@@ -68,7 +66,7 @@ public:
 static bool startServer() {
     BenchmarkService *service = new BenchmarkService();
     hidl_version version = make_hidl_version(1,0);
-    service->registerAsService(String16(gServiceName), version);
+    service->registerAsService(gServiceName, version);
     ProcessState::self()->startThreadPool();
     return 0;
 }
@@ -83,7 +81,7 @@ static void BM_sendVec(benchmark::State& state) {
     }
     hidl_version version = make_hidl_version(1,0);
     // getService automatically retries
-    service = IBenchmark::getService(String16(gServiceName), version);
+    service = IBenchmark::getService(gServiceName, version);
     if (service == nullptr) {
         state.SkipWithError("Failed to retrieve benchmark service.");
     }
