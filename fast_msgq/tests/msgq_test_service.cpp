@@ -36,7 +36,6 @@ using android::Looper;
 using android::LooperCallback;
 using android::OK;
 using android::sp;
-using android::String16;
 
 // libhwbinder:
 using android::hardware::BnInterface;
@@ -205,7 +204,7 @@ int Run() {
     return -1;
   }
   hidl_version version = android::hardware::make_hidl_version(4, 0);
-  service->registerAsService(String16(kServiceName), version);
+  service->registerAsService(kServiceName, version);
 
   ALOGI("Entering loop");
   while (true) {
