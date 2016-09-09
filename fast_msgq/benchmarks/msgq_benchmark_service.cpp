@@ -45,8 +45,8 @@ using android::hardware::Parcel;
 using android::hardware::ProcessState;
 using android::hardware::hidl_version;
 using android::hardware::make_hidl_version;
-using android::hardware::Status;
 using android::hardware::Return;
+using android::hardware::Void;
 // Standard library
 using std::cerr;
 using std::cout;
@@ -147,17 +147,17 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     if (fmsg_queue_outbox_) delete fmsg_queue_outbox_;
     if (time_data_) delete[] time_data_;
   }
-  virtual Status BenchmarkPingPong(uint32_t numIter) {
+  virtual Return<void> BenchmarkPingPong(uint32_t numIter) {
     std::thread(QueuePairReadWrite, fmsg_queue_inbox_, fmsg_queue_outbox_,
                 numIter)
         .detach();
-    return Status::ok();
+    return Void();
   }
-  virtual Status BenchmarkServiceWriteClientRead(uint32_t numIter) {
+  virtual Return<void> BenchmarkServiceWriteClientRead(uint32_t numIter) {
     if (time_data_) delete[] time_data_;
     time_data_ = new int64_t[numIter];
     std::thread(QueueWriter, fmsg_queue_outbox_, time_data_, numIter).detach();
-    return Status::ok();
+    return Void();
   }
   // TODO:: Change callback argument to bool.
   virtual Return<int32_t> RequestWrite(int count) {
@@ -186,7 +186,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
    * This method is used by the client to send the server timestamps to
    * calculate the server to client write to read delay.
    */
-  virtual Status SendTimeData(
+  virtual Return<void> SendTimeData(
       const android::hardware::hidl_vec<int64_t>& client_rcv_time_array) {
     int64_t accumulated_time = 0;
     for (uint32_t i = 0; i < client_rcv_time_array.size(); i++) {
@@ -204,7 +204,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     accumulated_time /= client_rcv_time_array.size();
     cout << "Average service to client write to read delay::"
          << accumulated_time << "ns" << endl;
-    return Status::ok();
+    return Void();
   }
   /*
    * Utility function to create an MQ given an fd and the queue_size.
@@ -243,7 +243,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
   /*
    * This method requests the service to configure the client's outbox queue.
    */
-  virtual Status ConfigureClientOutbox(
+  virtual Return<void> ConfigureClientOutbox(
       IBenchmarkMsgQ::ConfigureClientOutbox_cb callback) {
     int ashmemFd =
         ashmem_create_region("MessageQueueClientOutbox", kAshmemSize);
@@ -255,12 +255,12 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
         CreateWireMQDescriptor(*fmsg_queue_inbox_->getDesc());
     callback(*wmsgq_desc);
     delete wmsgq_desc;
-    return Status::ok();
+    return Void();
   }
   /*
    * This method requests the service to configure the client's inbox queue.
    */
-  virtual Status ConfigureClientInbox(
+  virtual Return<void> ConfigureClientInbox(
       IBenchmarkMsgQ::ConfigureClientInbox_cb callback) {
     int ashmemFd = ashmem_create_region("MessageQueueClientInbox", kAshmemSize);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
@@ -272,7 +272,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
         CreateWireMQDescriptor(*fmsg_queue_outbox_->getDesc());
     callback(*wmsgq_desc);
     delete wmsgq_desc;
-    return Status::ok();
+    return Void();
   }
 
   android::hardware::MessageQueue<uint8_t>* fmsg_queue_inbox_;
