@@ -71,8 +71,10 @@ class MQTestClient : public ::testing::Test {
     hidl_version version = make_hidl_version(4, 0);
     service = ITestMsgQ::getService(String16(client_tests::kServiceName), version);
     if (service == nullptr) return;
-    service->configure([this](const ITestMsgQ::WireMQDescriptor& in) {
-      create_mq_from_wiremqdesc(&this->fmsg_queue, &in);
+    service->configure([this](int32_t bad, const ITestMsgQ::WireMQDescriptor& in) {
+      if (!bad) {
+        create_mq_from_wiremqdesc(&this->fmsg_queue, &in);
+      }
     });
     ASSERT_TRUE(fmsg_queue != nullptr);
     ASSERT_TRUE(fmsg_queue->isValid());

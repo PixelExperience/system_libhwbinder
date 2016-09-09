@@ -46,7 +46,7 @@ using android::hardware::IPCThreadState;
 using android::hardware::Parcel;
 using android::hardware::ProcessState;
 using android::hardware::Return;
-using android::hardware::Status;
+using android::hardware::Void;
 using android::hardware::hidl_version;
 using android::hardware::make_hidl_version;
 
@@ -112,7 +112,7 @@ class TestMsgQ : public ITestMsgQ {
     return 0;
   }
 
-  virtual Status configure(ITestMsgQ::configure_cb callback) {
+  virtual Return<void> configure(ITestMsgQ::configure_cb callback) {
     size_t eventQueueTotal = 4096;
     const size_t eventQueueDataSize = 2048;
     int ashmemFd = ashmem_create_region("MessageQueue", eventQueueTotal);
@@ -123,7 +123,8 @@ class TestMsgQ : public ITestMsgQ {
     native_handle_t* mq_handle = native_handle_create(1, 0);
     if (!mq_handle) {
       ALOGE("Unable to create native_handle_t");
-      return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+      callback(-1, ITestMsgQ::WireMQDescriptor());
+      return Void();
     }
 
     std::vector<android::hardware::GrantorDescriptor> Grantors(
@@ -148,9 +149,9 @@ class TestMsgQ : public ITestMsgQ {
     }
     fmsg_queue = new android::hardware::MessageQueue<uint16_t>(mydesc);
     ITestMsgQ::WireMQDescriptor* wmsgq_desc = CreateWireMQDescriptor(mydesc);
-    callback(*wmsgq_desc);
+    callback(0, *wmsgq_desc);
     delete wmsgq_desc;
-    return Status::ok();
+    return Void();
   }
   android::hardware::MessageQueue<uint16_t>* fmsg_queue;
 
