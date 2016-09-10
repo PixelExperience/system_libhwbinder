@@ -17,13 +17,12 @@
 #include <iostream>
 #include <map>
 
+#include <../common/MessageQueue.h>
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
 #include <cutils/ashmem.h>
-#include <fmq/MessageQueue.h>
-#include <hidl/IServiceManager.h>
-#include <hidl/Status.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
+#include <hidl/IServiceManager.h>
 #include <hwbinder/ProcessState.h>
 #include <unistd.h>
 #include <utils/Errors.h>
