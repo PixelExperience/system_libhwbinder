@@ -63,61 +63,18 @@ class MQTestClient : public ::testing::Test {
 
     service = ITestMsgQ::getService(client_tests::kServiceName);
     if (service == nullptr) return;
-    service->configure([this](int32_t bad, const ITestMsgQ::WireMQDescriptor& in) {
-      if (!bad) {
-        create_mq_from_wiremqdesc(&this->fmsg_queue, &in);
-      }
-    });
+    service->configure(
+        [this](int32_t bad, const android::hardware::MQDescriptor& in) {
+          if (!bad) {
+            fmsg_queue = new android::hardware::MessageQueue<uint16_t>(in);
+          }
+        });
     ASSERT_TRUE(fmsg_queue != nullptr);
     ASSERT_TRUE(fmsg_queue->isValid());
     numMessagesMax = fmsg_queue->getQuantumCount();
   }
   sp<ITestMsgQ> service;
   android::hardware::MessageQueue<uint16_t>* fmsg_queue;
-
- private:
-  void create_mq_from_wiremqdesc(
-      android::hardware::MessageQueue<uint16_t>** rbIn,
-      const ITestMsgQ::WireMQDescriptor* wmq_desc) {
-    /*
-     * Create a copy of the native handle from the WireMQDescriptor.
-     */
-    if ((wmq_desc == nullptr) || (wmq_desc->mq_handle == nullptr)) {
-      std::cout << "Bad WireMQDescriptor" << std::endl;
-      return;
-    }
-    native_handle_t* mq_handle = native_handle_create(
-        wmq_desc->mq_handle->numFds, wmq_desc->mq_handle->numInts);
-    if (mq_handle == nullptr) return;
-    for (int i = 0; i < wmq_desc->mq_handle->numFds; i++)
-      mq_handle->data[i] = wmq_desc->mq_handle->data[i];
-    memcpy(&mq_handle->data[mq_handle->numFds],
-           &wmq_desc->mq_handle->data[mq_handle->numFds],
-           mq_handle->numInts * sizeof(int));
-
-    /*
-     * Create the vector of GrantorDescriptors.
-     */
-    std::vector<android::hardware::GrantorDescriptor> Grantors(
-        MINIMUM_GRANTOR_COUNT);
-    Grantors[android::hardware::READPTRPOS] = {
-        0, wmq_desc->grantors[android::hardware::READPTRPOS].shm.fdIndex,
-        wmq_desc->grantors[android::hardware::READPTRPOS].shm.offset,
-        wmq_desc->grantors[android::hardware::READPTRPOS].shm.extent};
-    Grantors[android::hardware::WRITEPTRPOS] = {
-        0, wmq_desc->grantors[android::hardware::WRITEPTRPOS].shm.fdIndex,
-        wmq_desc->grantors[android::hardware::WRITEPTRPOS].shm.offset,
-        wmq_desc->grantors[android::hardware::WRITEPTRPOS].shm.extent};
-
-    Grantors[android::hardware::DATAPTRPOS] = {
-        0, wmq_desc->grantors[android::hardware::DATAPTRPOS].shm.fdIndex,
-        wmq_desc->grantors[android::hardware::DATAPTRPOS].shm.offset,
-        wmq_desc->grantors[android::hardware::DATAPTRPOS].shm.extent};
-
-    android::hardware::MQDescriptor mq_desc(Grantors, mq_handle, 0,
-                                            sizeof(uint16_t));
-    *rbIn = new android::hardware::MessageQueue<uint16_t>(mq_desc);
-  }
 };
 
 /*

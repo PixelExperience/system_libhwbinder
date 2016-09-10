@@ -18,7 +18,9 @@
 #define HIDL_MQ_H
 
 #include <atomic>
-#include "MessageQueueDesc.h"
+
+#include <android-base/logging.h>
+#include <hidl/MQDescriptor.h>
 
 #define MINIMUM_GRANTOR_COUNT 3
 
@@ -29,6 +31,7 @@ template <typename T>
 struct MessageQueue {
   MessageQueue(const MQDescriptor& Desc);
   ~MessageQueue();
+
   size_t availableToWrite() const;
   size_t availableToRead() const;
   size_t getQuantumSize() const;
@@ -75,16 +78,23 @@ MessageQueue<T>::MessageQueue(const MQDescriptor& Desc) : mDesc(Desc) {
    * Verify that the the Descriptor contains the minimum number of grantors
    * the native_handle is valid and T matches quantum size.
    */
-  if ((Desc.getHandle() == nullptr) ||
-      (Desc.getGrantors().size() < MINIMUM_GRANTOR_COUNT) ||
-      (Desc.getQuantum() != sizeof(T)))
+  if (!Desc.isHandleValid() ||
+      (Desc.countGrantors() < MINIMUM_GRANTOR_COUNT) ||
+      (Desc.getQuantum() != sizeof(T))) {
     return;
+  }
 
   mReadPtr = (std::atomic<uint64_t>*)mDesc.mapGrantorDescr(READPTRPOS);
+  CHECK(mReadPtr != nullptr);
+
   mWritePtr = (std::atomic<uint64_t>*)mDesc.mapGrantorDescr(WRITEPTRPOS);
+  CHECK(mWritePtr != nullptr);
+
   mReadPtr->store(0, std::memory_order_acquire);
   mWritePtr->store(0, std::memory_order_acquire);
+
   mRing = (uint8_t*)mDesc.mapGrantorDescr(DATAPTRPOS);
+  CHECK(mRing != nullptr);
 }
 
 template <typename T>
