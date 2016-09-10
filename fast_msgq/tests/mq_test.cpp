@@ -16,10 +16,10 @@
 
 #include <asm-generic/mman.h>
 #include <cutils/ashmem.h>
-#include <fmq/MessageQueue.h>
 #include <gtest/gtest.h>
 #include <cstdlib>
 #include <sstream>
+#include "../common/MessageQueue.h"
 
 static const int queue_size = 1024;
 typedef uint64_t mq_position_t;

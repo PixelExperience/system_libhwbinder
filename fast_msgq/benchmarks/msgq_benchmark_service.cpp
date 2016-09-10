@@ -14,9 +14,9 @@
 * limitations under the License.
 */
 
+#include <../common/MessageQueue.h>
 #include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
 #include <cutils/ashmem.h>
-#include <fmq/MessageQueue.h>
 #include <hidl/IServiceManager.h>
 #include <hidl/Status.h>
 #include <hwbinder/IInterface.h>
