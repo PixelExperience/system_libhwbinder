@@ -329,7 +329,7 @@ static int open_driver()
             ALOGE("Binder ioctl to set max threads failed: %s", strerror(errno));
         }
     } else {
-        ALOGW("Opening '/dev/binder' failed: %s\n", strerror(errno));
+        ALOGW("Opening '/dev/hwbinder' failed: %s\n", strerror(errno));
     }
     return fd;
 }
