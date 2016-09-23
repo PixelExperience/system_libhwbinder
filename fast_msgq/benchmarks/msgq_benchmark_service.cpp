@@ -58,7 +58,6 @@ using std::vector;
 
 using android::hardware::benchmarks::msgq::V1_0::IBenchmarkMsgQ;
 
-typedef uint64_t RingBufferPosition;
 /*
  * All benchmark test will per performed on a FMQ of size kQueueSize
  */
@@ -220,22 +219,9 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
       return nullptr;
     }
 
-    std::vector<android::hardware::GrantorDescriptor> Grantors(
-        MINIMUM_GRANTOR_COUNT);
-
     mq_handle->data[0] = fd;
 
-    /*
-     * Create Grantor Descriptors for read, write pointers and the data buffer.
-     */
-    Grantors[android::hardware::READPTRPOS] = {0, 0, 0,
-                                               sizeof(RingBufferPosition)};
-    Grantors[android::hardware::WRITEPTRPOS] = {
-        0, 0, sizeof(RingBufferPosition), sizeof(RingBufferPosition)};
-    Grantors[android::hardware::DATAPTRPOS] = {
-        0, 0, 2 * sizeof(RingBufferPosition), queue_size};
-
-    android::hardware::MQDescriptor mydesc(Grantors, mq_handle, 0,
+    android::hardware::MQDescriptor mydesc(queue_size, mq_handle, 0,
                                            sizeof(uint8_t));
     return new android::hardware::MessageQueue<uint8_t>(mydesc);
   }
@@ -253,8 +239,9 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
       callback(-1, android::hardware::MQDescriptor(
                        std::vector<android::hardware::GrantorDescriptor>(),
                        nullptr, 0, 0));
+    } else {
+      callback(0, *fmsg_queue_inbox_->getDesc());
     }
-    callback(0, *fmsg_queue_inbox_->getDesc());
     return Void();
   }
   /*
@@ -271,8 +258,9 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
       callback(-1, android::hardware::MQDescriptor(
                        std::vector<android::hardware::GrantorDescriptor>(),
                        nullptr, 0, 0));
+    } else {
+      callback(0, *fmsg_queue_outbox_->getDesc());
     }
-    callback(0, *fmsg_queue_outbox_->getDesc());
     return Void();
   }
 
