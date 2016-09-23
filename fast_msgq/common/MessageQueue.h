@@ -17,10 +17,10 @@
 #ifndef HIDL_MQ_H
 #define HIDL_MQ_H
 
-#include <atomic>
-
 #include <android-base/logging.h>
 #include <hidl/MQDescriptor.h>
+#include <sys/mman.h>
+#include <atomic>
 
 #define MINIMUM_GRANTOR_COUNT 3
 
@@ -66,6 +66,8 @@ struct MessageQueue {
   MessageQueue& operator=(const MessageQueue& other) = delete;
   MessageQueue();
 
+  void* mapGrantorDescr(uint32_t grantor_idx);
+  void unmapGrantorDescr(void* address, uint32_t grantor_idx);
   MQDescriptor mDesc;
   uint8_t* mRing;
   std::atomic<uint64_t>* mReadPtr;
@@ -84,24 +86,26 @@ MessageQueue<T>::MessageQueue(const MQDescriptor& Desc) : mDesc(Desc) {
     return;
   }
 
-  mReadPtr = (std::atomic<uint64_t>*)mDesc.mapGrantorDescr(READPTRPOS);
+  mReadPtr =
+      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr(READPTRPOS));
   CHECK(mReadPtr != nullptr);
 
-  mWritePtr = (std::atomic<uint64_t>*)mDesc.mapGrantorDescr(WRITEPTRPOS);
+  mWritePtr =
+      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr(WRITEPTRPOS));
   CHECK(mWritePtr != nullptr);
 
   mReadPtr->store(0, std::memory_order_acquire);
   mWritePtr->store(0, std::memory_order_acquire);
 
-  mRing = (uint8_t*)mDesc.mapGrantorDescr(DATAPTRPOS);
+  mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr(DATAPTRPOS));
   CHECK(mRing != nullptr);
 }
 
 template <typename T>
 MessageQueue<T>::~MessageQueue() {
-  if (mReadPtr) mDesc.unmapGrantorDescr(mReadPtr, READPTRPOS);
-  if (mWritePtr) mDesc.unmapGrantorDescr(mWritePtr, WRITEPTRPOS);
-  if (mRing) mDesc.unmapGrantorDescr(mRing, DATAPTRPOS);
+  if (mReadPtr) unmapGrantorDescr(mReadPtr, READPTRPOS);
+  if (mWritePtr) unmapGrantorDescr(mWritePtr, WRITEPTRPOS);
+  if (mRing) unmapGrantorDescr(mRing, DATAPTRPOS);
 }
 template <typename T>
 bool MessageQueue<T>::write(const T* data) {
@@ -247,6 +251,39 @@ template <typename T>
 bool MessageQueue<T>::isValid() const {
   return mRing != nullptr && mReadPtr != nullptr && mWritePtr != nullptr;
 }
+
+template <typename T>
+void* MessageQueue<T>::mapGrantorDescr(uint32_t grantor_idx) {
+  const native_handle_t* handle = mDesc.getNativeHandle()->handle();
+  auto mGrantors = mDesc.getGrantors();
+  int fdIndex = mGrantors[grantor_idx].fdIndex;
+  /*
+   * Offset for mmap must be a multiple of PAGE_SIZE.
+   */
+  int mapOffset = (mGrantors[grantor_idx].offset / PAGE_SIZE) * PAGE_SIZE;
+  int mapLength =
+      mGrantors[grantor_idx].offset - mapOffset + mGrantors[grantor_idx].extent;
+
+  void* address = mmap(0, mapLength, PROT_READ | PROT_WRITE, MAP_SHARED,
+                       handle->data[fdIndex], mapOffset);
+  return (address == MAP_FAILED)
+             ? nullptr
+             : reinterpret_cast<uint8_t*>(address) +
+             (mGrantors[grantor_idx].offset - mapOffset);
+}
+
+template <typename T>
+void MessageQueue<T>::unmapGrantorDescr(void* address, uint32_t grantor_idx) {
+  const native_handle_t* handle = mDesc.getNativeHandle()->handle();
+  auto mGrantors = mDesc.getGrantors();
+  int mapOffset = (mGrantors[grantor_idx].offset / PAGE_SIZE) * PAGE_SIZE;
+  int mapLength =
+      mGrantors[grantor_idx].offset - mapOffset + mGrantors[grantor_idx].extent;
+  void* baseAddress = reinterpret_cast<uint8_t*>(address) -
+                      (mGrantors[grantor_idx].offset - mapOffset);
+  if (baseAddress) munmap(baseAddress, mapLength);
+}
+
 }  // namespace hardware
 }  // namespace android
 #endif  // HIDL_MQ_H
