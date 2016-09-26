@@ -62,8 +62,6 @@ using android::hardware::tests::msgq::V1_0::ITestMsgQ;
 
 const char kServiceName[] = "android.hardware.tests.msgq@1.0::ITestMsgQ";
 
-typedef uint64_t ringbuffer_position_t;
-
 namespace {
 
 class BinderCallback : public LooperCallback {
@@ -127,22 +125,9 @@ class TestMsgQ : public ITestMsgQ {
       return Void();
     }
 
-    std::vector<android::hardware::GrantorDescriptor> Grantors(
-        MINIMUM_GRANTOR_COUNT);
-
     mq_handle->data[0] = ashmemFd;
 
-    /*
-     * Create Grantor Descriptors for read, write pointers and the data buffer.
-     */
-    Grantors[android::hardware::READPTRPOS] = {0, 0, 0,
-                                               sizeof(ringbuffer_position_t)};
-    Grantors[android::hardware::WRITEPTRPOS] = {
-        0, 0, sizeof(ringbuffer_position_t), sizeof(ringbuffer_position_t)};
-    Grantors[android::hardware::DATAPTRPOS] = {
-        0, 0, 2 * sizeof(ringbuffer_position_t), eventQueueDataSize};
-
-    android::hardware::MQDescriptor mydesc(Grantors, mq_handle, 0,
+    android::hardware::MQDescriptor mydesc(eventQueueDataSize, mq_handle, 0,
                                            sizeof(uint16_t));
     if (fmsg_queue) {
       delete fmsg_queue;

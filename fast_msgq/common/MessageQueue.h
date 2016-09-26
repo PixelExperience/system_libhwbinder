@@ -22,8 +22,6 @@
 #include <sys/mman.h>
 #include <atomic>
 
-#define MINIMUM_GRANTOR_COUNT 3
-
 namespace android {
 namespace hardware {
 
@@ -81,31 +79,34 @@ MessageQueue<T>::MessageQueue(const MQDescriptor& Desc) : mDesc(Desc) {
    * the native_handle is valid and T matches quantum size.
    */
   if (!Desc.isHandleValid() ||
-      (Desc.countGrantors() < MINIMUM_GRANTOR_COUNT) ||
+      (Desc.countGrantors() < MQDescriptor::kMinGrantorCount) ||
       (Desc.getQuantum() != sizeof(T))) {
     return;
   }
 
   mReadPtr =
-      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr(READPTRPOS));
+      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr
+                                               (MQDescriptor::READPTRPOS));
   CHECK(mReadPtr != nullptr);
 
   mWritePtr =
-      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr(WRITEPTRPOS));
+      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr
+                                               (MQDescriptor::WRITEPTRPOS));
   CHECK(mWritePtr != nullptr);
 
   mReadPtr->store(0, std::memory_order_acquire);
   mWritePtr->store(0, std::memory_order_acquire);
 
-  mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr(DATAPTRPOS));
+  mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr
+                                     (MQDescriptor::DATAPTRPOS));
   CHECK(mRing != nullptr);
 }
 
 template <typename T>
 MessageQueue<T>::~MessageQueue() {
-  if (mReadPtr) unmapGrantorDescr(mReadPtr, READPTRPOS);
-  if (mWritePtr) unmapGrantorDescr(mWritePtr, WRITEPTRPOS);
-  if (mRing) unmapGrantorDescr(mRing, DATAPTRPOS);
+  if (mReadPtr) unmapGrantorDescr(mReadPtr, MQDescriptor::READPTRPOS);
+  if (mWritePtr) unmapGrantorDescr(mWritePtr, MQDescriptor::WRITEPTRPOS);
+  if (mRing) unmapGrantorDescr(mRing, MQDescriptor::DATAPTRPOS);
 }
 template <typename T>
 bool MessageQueue<T>::write(const T* data) {
