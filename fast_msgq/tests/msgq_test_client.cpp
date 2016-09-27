@@ -52,21 +52,18 @@ const char kServiceName[] = "android.hardware.tests.msgq@1.0::ITestMsgQ";
 class MQTestClient : public ::testing::Test {
  protected:
   virtual void TearDown() {
-    if (fmsg_queue) {
       delete fmsg_queue;
-    }
   }
 
   virtual void SetUp() {
     namespace client_tests = android::hardware::tests::client;
 
     service = ITestMsgQ::getService(client_tests::kServiceName);
-    if (service == nullptr) return;
+    ASSERT_NE(service, nullptr);
     service->configureFmqSyncReadWrite([this](
-        int32_t bad, const MQDescriptorSync& in) {
-      if (!bad) {
-        fmsg_queue = new MessageQueue<uint16_t, kSynchronizedReadWrite>(in);
-      }
+        bool ret, const MQDescriptorSync& in) {
+      ASSERT_TRUE(ret);
+      fmsg_queue = new MessageQueue<uint16_t, kSynchronizedReadWrite>(in);
     });
     ASSERT_TRUE(fmsg_queue != nullptr);
     ASSERT_TRUE(fmsg_queue->isValid());
@@ -92,8 +89,8 @@ bool verifyData(uint16_t* data, int count) {
 TEST_F(MQTestClient, SmallInputReaderTest1) {
   const int data_len = 16;
   ASSERT_TRUE(data_len <= numMessagesMax);
-  int write_count = service->requestWrite(data_len);
-  ASSERT_EQ(write_count, data_len);
+  bool ret = service->requestWrite(data_len);
+  ASSERT_TRUE(ret);
   uint16_t read_data[data_len] = {};
   ASSERT_TRUE(fmsg_queue->read(read_data, data_len));
   ASSERT_TRUE(verifyData(read_data, data_len));
@@ -112,8 +109,8 @@ TEST_F(MQTestClient, SmallInputWriterTest1) {
     data[i] = i;
   }
   ASSERT_TRUE(fmsg_queue->write(data, data_len));
-  int read_count = service->requestRead(data_len);
-  ASSERT_EQ(read_count, data_len);
+  bool ret = service->requestRead(data_len);
+  ASSERT_TRUE(ret);
   size_t available_count = fmsg_queue->availableToWrite();
   ASSERT_EQ(original_count, available_count);
 }
@@ -146,8 +143,8 @@ TEST_F(MQTestClient, WriteWhenFull) {
   ASSERT_TRUE(fmsg_queue->write(data, numMessagesMax));
   ASSERT_TRUE(fmsg_queue->availableToWrite() == 0);
   ASSERT_FALSE(fmsg_queue->write(data, 1));
-  int read_count = service->requestRead(numMessagesMax);
-  ASSERT_EQ(read_count, numMessagesMax);
+  bool ret = service->requestRead(numMessagesMax);
+  ASSERT_TRUE(ret);
   delete[] data;
 }
 
@@ -157,8 +154,8 @@ TEST_F(MQTestClient, WriteWhenFull) {
  * Read and verify data in fmsg_queue.
  */
 TEST_F(MQTestClient, LargeInputTest1) {
-  int write_count = service->requestWrite(numMessagesMax);
-  ASSERT_EQ(write_count, numMessagesMax);
+  bool ret = service->requestWrite(numMessagesMax);
+  ASSERT_TRUE(ret);
   uint16_t* read_data = new uint16_t[numMessagesMax]();
   ASSERT_TRUE(fmsg_queue->read(read_data, numMessagesMax));
   ASSERT_TRUE(verifyData(read_data, numMessagesMax));
@@ -174,9 +171,8 @@ TEST_F(MQTestClient, LargeInputTest2) {
   ASSERT_TRUE(fmsg_queue->availableToRead() == 0);
   const int numMessages = 2048;
   ASSERT_TRUE(numMessages > numMessagesMax);
-  int write_count = service->requestWrite(numMessages);
-  int expected_count = 0;
-  ASSERT_EQ(write_count, expected_count);
+  bool ret = service->requestWrite(numMessages);
+  ASSERT_FALSE(ret);
   uint16_t read_data;
   ASSERT_TRUE(fmsg_queue->availableToRead() == 0);
   ASSERT_FALSE(fmsg_queue->read(&read_data, 1));
@@ -199,8 +195,8 @@ TEST_F(MQTestClient, LargeInputTest3) {
   ASSERT_TRUE(fmsg_queue->availableToWrite() == 0);
   ASSERT_FALSE(fmsg_queue->write(data, 1));
 
-  int read_count = service->requestRead(numMessagesMax);
-  ASSERT_EQ(read_count, numMessagesMax);
+  bool ret = service->requestRead(numMessagesMax);
+  ASSERT_TRUE(ret);
   delete[] data;
 }
 
@@ -216,8 +212,8 @@ TEST_F(MQTestClient, MultipleRead) {
   int availableToRead = fmsg_queue->availableToRead();
   int expected_count = 0;
   ASSERT_EQ(availableToRead, expected_count);
-  int write_count = service->requestWrite(numMessages);
-  ASSERT_EQ(write_count, numMessages);
+  bool ret = service->requestWrite(numMessages);
+  ASSERT_TRUE(ret);
   uint16_t read_data[numMessages] = {};
   for (int i = 0; i < chunkNum; i++) {
     ASSERT_TRUE(fmsg_queue->read(read_data + i * chunkSize, chunkSize));
@@ -227,7 +223,7 @@ TEST_F(MQTestClient, MultipleRead) {
 
 /*
  * Write to FMQ in bursts.
- * Request service to read data. Verify read_count.
+ * Request service to read data, verify that it was successful.
  */
 TEST_F(MQTestClient, MultipleWrite) {
   const int chunkSize = 100;
@@ -241,8 +237,8 @@ TEST_F(MQTestClient, MultipleWrite) {
   for (int i = 0; i < chunkNum; i++) {
     ASSERT_TRUE(fmsg_queue->write(data + i * chunkSize, chunkSize));
   }
-  int read_count = service->requestRead(numMessages);
-  ASSERT_TRUE(read_count == numMessages);
+  bool ret = service->requestRead(numMessages);
+  ASSERT_TRUE(ret);
 }
 
 /*
@@ -258,10 +254,10 @@ TEST_F(MQTestClient, ReadWriteWrapAround) {
     data[i] = i;
   }
   ASSERT_TRUE(fmsg_queue->write(data, numMessages));
-  int read_count = service->requestRead(numMessages);
-  ASSERT_TRUE(read_count == numMessages);
+  bool ret = service->requestRead(numMessages);
+  ASSERT_TRUE(ret);
   ASSERT_TRUE(fmsg_queue->write(data, numMessagesMax));
-  read_count = service->requestRead(numMessagesMax);
-  ASSERT_TRUE(read_count == numMessagesMax);
+  ret = service->requestRead(numMessagesMax);
+  ASSERT_TRUE(ret);
   delete[] data;
 }
