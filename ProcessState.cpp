@@ -353,13 +353,14 @@ ProcessState::ProcessState()
         mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
         if (mVMStart == MAP_FAILED) {
             // *sigh*
-            ALOGE("Using /dev/binder failed: unable to mmap transaction memory.\n");
+            ALOGE("Using /dev/hwbinder failed: unable to mmap transaction memory.\n");
             close(mDriverFD);
             mDriverFD = -1;
         }
     }
-
-    LOG_ALWAYS_FATAL_IF(mDriverFD < 0, "Binder driver could not be opened.  Terminating.");
+    else {
+        ALOGE("Binder driver could not be opened.  Terminating.");
+    }
 }
 
 ProcessState::~ProcessState()
