@@ -22,30 +22,22 @@ LOCAL_SRC_FILES := \
 
 LOCAL_SHARED_LIBRARIES := libhidl libhwbinder libbase libcutils libutils libbase
 LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0
-LOCAL_C_INCLUDES := system/libhwbinder/include
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-LOCAL_REQUIRED_MODULES := libgtest
 LOCAL_SRC_FILES := \
-                   msgq_test_client.cpp \
-                   test_main.cpp
+    msgq_test_client.cpp
 
 LOCAL_SHARED_LIBRARIES := libhidl libhwbinder libbase libcutils libutils libbase
 LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0
-LOCAL_STATIC_LIBRARIES := libgtest
 LOCAL_MODULE := mq_test_client
-LOCAL_C_INCLUDES := system/libhwbinder/include
-include $(BUILD_EXECUTABLE)
+include $(BUILD_NATIVE_TEST)
 
 include $(CLEAR_VARS)
-LOCAL_REQUIRED_MODULES := libgtest
 LOCAL_SRC_FILES := \
-                   mq_test.cpp \
-                   test_main.cpp
-LOCAL_STATIC_LIBRARIES := libutils libcutils liblog libgtest
+    mq_test.cpp
+LOCAL_STATIC_LIBRARIES := libutils libcutils liblog
 LOCAL_SHARED_LIBRARIES := libhidl libhwbinder libbase
-LOCAL_C_INCLUDES := system/libhwbinder/include
 LOCAL_MODULE := mq_test
-include $(BUILD_EXECUTABLE)
+include $(BUILD_NATIVE_TEST)
 

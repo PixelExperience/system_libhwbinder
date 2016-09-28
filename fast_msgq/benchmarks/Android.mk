@@ -23,19 +23,14 @@ LOCAL_SRC_FILES := \
 
 LOCAL_SHARED_LIBRARIES := libhwbinder libbase libcutils libutils libhidl
 LOCAL_SHARED_LIBRARIES += android.hardware.benchmarks.msgq@1.0
-LOCAL_C_INCLUDES := system/libhwbinder/include
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-LOCAL_REQUIRED_MODULES := libgtest
 LOCAL_SRC_FILES := \
-                   msgq_benchmark_client.cpp \
-                   test_main.cpp
+    msgq_benchmark_client.cpp
 
 LOCAL_SHARED_LIBRARIES := libhwbinder libbase libcutils libutils libhidl
 LOCAL_SHARED_LIBRARIES += android.hardware.benchmarks.msgq@1.0
-LOCAL_STATIC_LIBRARIES := libgtest
 LOCAL_MODULE := mq_benchmark_client
-LOCAL_C_INCLUDES := system/libhwbinder/include
-include $(BUILD_EXECUTABLE)
+include $(BUILD_NATIVE_TEST)
 

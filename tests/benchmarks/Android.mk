@@ -25,7 +25,6 @@ LOCAL_MODULE_TAGS := eng tests
 
 LOCAL_SRC_FILES := Benchmark.cpp
 LOCAL_SHARED_LIBRARIES := libhwbinder libhidl libutils android.hardware.tests.libhwbinder@1.0
-LOCAL_C_INCLUDES := system/libhwbinder/include
 
 LOCAL_STATIC_LIBRARIES := libtestUtil
 LOCAL_MULTILIB := both
@@ -43,7 +42,6 @@ LOCAL_MODULE_TAGS := eng tests
 
 LOCAL_SRC_FILES := Benchmark_binder.cpp
 LOCAL_SHARED_LIBRARIES := libbinder libutils android.hardware.tests.libbinder
-LOCAL_C_INCLUDES := system/libbinder/include
 
 LOCAL_STATIC_LIBRARIES := libtestUtil
 LOCAL_MULTILIB := both
