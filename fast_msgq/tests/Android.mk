@@ -20,7 +20,7 @@ LOCAL_MODULE := mq_test_service
 LOCAL_SRC_FILES := \
     msgq_test_service.cpp
 
-LOCAL_SHARED_LIBRARIES := libhidl libhwbinder libbase libcutils libutils libbase
+LOCAL_SHARED_LIBRARIES := libhidl libhwbinder libbase liblog libcutils libutils libbase
 LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0
 include $(BUILD_EXECUTABLE)
 
