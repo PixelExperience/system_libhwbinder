@@ -14,22 +14,19 @@
 * limitations under the License.
 */
 
-#include <../common/MessageQueue.h>
-#include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
 #include <cutils/ashmem.h>
+
 #include <hidl/IServiceManager.h>
-#include <hidl/Status.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/ProcessState.h>
-#include <unistd.h>
-#include <utils/Errors.h>
-#include <utils/Log.h>
 #include <utils/Looper.h>
 #include <utils/StrongPointer.h>
 #include <iostream>
 #include <thread>
-#include <sys/mman.h>
+
+#include <../common/MessageQueue.h>
+#include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
 
 // libutils:
 using android::Looper;
@@ -53,6 +50,10 @@ using std::endl;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+
+// libhidl
+using android::hardware::kSynchronizedReadWrite;
+using android::hardware::MQFlavor;
 
 // Generated HIDL files
 
@@ -89,8 +90,9 @@ namespace {
  * and notes the time before each write in the time_data_ array. It will
  * be used to calculate the average server to client write to read delay.
  */
-void QueueWriter(android::hardware::MessageQueue<uint8_t>* fmsg_queue_outbox_,
-                 int64_t* time_data_, uint32_t numIter) {
+template <MQFlavor flavor>
+void QueueWriter(android::hardware::MessageQueue<uint8_t, flavor>*
+                 fmsg_queue_outbox_, int64_t* time_data_, uint32_t numIter) {
   uint8_t data[kPacketSize64];
   uint32_t num_writes = 0;
 
@@ -108,9 +110,10 @@ void QueueWriter(android::hardware::MessageQueue<uint8_t>* fmsg_queue_outbox_,
  * into the outbox queue. The client will calculate the average time taken
  * for each iteration which consists of two write and two read operations.
  */
+template <MQFlavor flavor>
 void QueuePairReadWrite(
-    android::hardware::MessageQueue<uint8_t>* fmsg_queue_inbox_,
-    android::hardware::MessageQueue<uint8_t>* fmsg_queue_outbox_,
+    android::hardware::MessageQueue<uint8_t, flavor>* fmsg_queue_inbox_,
+    android::hardware::MessageQueue<uint8_t, flavor>* fmsg_queue_outbox_,
     uint32_t numIter) {
   uint8_t data[kPacketSize64];
   uint32_t num_round_trips = 0;
@@ -145,20 +148,21 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     if (fmsg_queue_outbox_) delete fmsg_queue_outbox_;
     if (time_data_) delete[] time_data_;
   }
-  virtual Return<void> BenchmarkPingPong(uint32_t numIter) {
-    std::thread(QueuePairReadWrite, fmsg_queue_inbox_, fmsg_queue_outbox_,
-                numIter)
+  virtual Return<void> benchmarkPingPong(uint32_t numIter) {
+    std::thread(QueuePairReadWrite<kSynchronizedReadWrite>, fmsg_queue_inbox_,
+                fmsg_queue_outbox_, numIter)
         .detach();
     return Void();
   }
-  virtual Return<void> BenchmarkServiceWriteClientRead(uint32_t numIter) {
+  virtual Return<void> benchmarkServiceWriteClientRead(uint32_t numIter) {
     if (time_data_) delete[] time_data_;
     time_data_ = new int64_t[numIter];
-    std::thread(QueueWriter, fmsg_queue_outbox_, time_data_, numIter).detach();
+    std::thread(QueueWriter<kSynchronizedReadWrite>, fmsg_queue_outbox_,
+                time_data_, numIter).detach();
     return Void();
   }
   // TODO:: Change callback argument to bool.
-  virtual Return<int32_t> RequestWrite(int count) {
+  virtual Return<int32_t> requestWrite(int count) {
     uint8_t* data = new uint8_t[count];
     for (int i = 0; i < count; i++) {
       data[i] = i;
@@ -171,7 +175,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     return 0;
   }
   // TODO:: Change callback argument to bool.
-  virtual Return<int32_t> RequestRead(int count) {
+  virtual Return<int32_t> requestRead(int count) {
     uint8_t* data = new uint8_t[count];
     if (fmsg_queue_inbox_->read(data, count)) {
       delete[] data;
@@ -184,7 +188,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
    * This method is used by the client to send the server timestamps to
    * calculate the server to client write to read delay.
    */
-  virtual Return<void> SendTimeData(
+  virtual Return<void> sendTimeData(
       const android::hardware::hidl_vec<int64_t>& client_rcv_time_array) {
     int64_t accumulated_time = 0;
     for (uint32_t i = 0; i < client_rcv_time_array.size(); i++) {
@@ -204,68 +208,81 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
          << accumulated_time << "ns" << endl;
     return Void();
   }
-  /*
-   * Utility function to create an MQ given an fd and the queue_size.
-   * The read pointer counter, write pointer counter and the
-   * data buffer would be mapped from various offsets of the fd.
-   * TODO: Create a constructor for MessageQueue that is able to
-   * take these parameters.
-   */
-  android::hardware::MessageQueue<uint8_t>* CreateMessageQueue(
-      int fd, uint32_t queue_size) {
-    native_handle_t* mq_handle = native_handle_create(1, 0);
-    if (!mq_handle) {
-      ALOGE("Unable to create native_handle_t");
-      return nullptr;
-    }
 
-    mq_handle->data[0] = fd;
-
-    android::hardware::MQDescriptor mydesc(queue_size, mq_handle, 0,
-                                           sizeof(uint8_t));
-    return new android::hardware::MessageQueue<uint8_t>(mydesc);
-  }
   /*
    * This method requests the service to configure the client's outbox queue.
    */
-  virtual Return<void> ConfigureClientOutbox(
-      IBenchmarkMsgQ::ConfigureClientOutbox_cb callback) {
+  virtual Return<void> configureClientOutboxSyncReadWrite(
+      IBenchmarkMsgQ::configureClientOutboxSyncReadWrite_cb callback) {
     int ashmemFd =
         ashmem_create_region("MessageQueueClientOutbox", kAshmemSize);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
     if (fmsg_queue_inbox_) delete fmsg_queue_inbox_;
-    fmsg_queue_inbox_ = CreateMessageQueue(ashmemFd, kQueueSize);
-    if (fmsg_queue_outbox_ == nullptr) {
-      callback(-1, android::hardware::MQDescriptor(
+    native_handle_t* mq_handle = native_handle_create(1 /* numFds */,
+                                                      0 /* numInts */);
+    if (!mq_handle) {
+          ALOGE("Unable to create native_handle_t");
+          callback(-1 /* ret */, android::hardware::MQDescriptorSync(
                        std::vector<android::hardware::GrantorDescriptor>(),
-                       nullptr, 0, 0));
+                       nullptr /* nhandle */, 0 /* size */));
+          return Void();
+    }
+
+    mq_handle->data[0] = ashmemFd;
+
+    android::hardware::MQDescriptorSync desc(kQueueSize, mq_handle,
+                                                            sizeof(uint8_t));
+
+    fmsg_queue_inbox_ = new android::hardware::MessageQueue<uint8_t,
+                      kSynchronizedReadWrite>(desc);
+    if (fmsg_queue_inbox_ == nullptr) {
+      callback(-1 /* ret */, android::hardware::MQDescriptorSync(
+                       std::vector<android::hardware::GrantorDescriptor>(),
+                       nullptr /* nhandle */, 0 /* size */));
     } else {
-      callback(0, *fmsg_queue_inbox_->getDesc());
+      callback(0 /* ret */, desc);
     }
     return Void();
   }
   /*
    * This method requests the service to configure the client's inbox queue.
    */
-  virtual Return<void> ConfigureClientInbox(
-      IBenchmarkMsgQ::ConfigureClientInbox_cb callback) {
+  virtual Return<void> configureClientInboxSyncReadWrite(
+      IBenchmarkMsgQ::configureClientInboxSyncReadWrite_cb callback) {
     int ashmemFd = ashmem_create_region("MessageQueueClientInbox", kAshmemSize);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
 
     if (fmsg_queue_outbox_) delete fmsg_queue_outbox_;
-    fmsg_queue_outbox_ = CreateMessageQueue(ashmemFd, kQueueSize);
-    if (fmsg_queue_outbox_ == nullptr) {
-      callback(-1, android::hardware::MQDescriptor(
+    native_handle_t* mq_handle = native_handle_create(1, 0);
+    if (!mq_handle) {
+          ALOGE("Unable to create native_handle_t");
+          callback(-1 /* ret */, android::hardware::MQDescriptorSync(
                        std::vector<android::hardware::GrantorDescriptor>(),
-                       nullptr, 0, 0));
+                       nullptr /* nhandle */, 0 /* size */));
+          return Void();
+    }
+
+    mq_handle->data[0] = ashmemFd;
+
+    android::hardware::MQDescriptorSync desc(kQueueSize, mq_handle,
+                                                            sizeof(uint8_t));
+
+    fmsg_queue_outbox_ = new android::hardware::MessageQueue<uint8_t,
+                       kSynchronizedReadWrite>(desc);
+    if (fmsg_queue_outbox_ == nullptr) {
+      callback(-1 /* ret */, android::hardware::MQDescriptorSync(
+                       std::vector<android::hardware::GrantorDescriptor>(),
+                       nullptr /* nhandle */, 0 /* size */));
     } else {
-      callback(0, *fmsg_queue_outbox_->getDesc());
+      callback(0 /* ret */, desc);
     }
     return Void();
   }
 
-  android::hardware::MessageQueue<uint8_t>* fmsg_queue_inbox_;
-  android::hardware::MessageQueue<uint8_t>* fmsg_queue_outbox_;
+  android::hardware::MessageQueue<uint8_t, kSynchronizedReadWrite>*
+      fmsg_queue_inbox_;
+  android::hardware::MessageQueue<uint8_t, kSynchronizedReadWrite>*
+      fmsg_queue_outbox_;
   int64_t* time_data_;
 };
 

@@ -14,15 +14,12 @@
 * limitations under the License.
 */
 #include <android-base/logging.h>
-#include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
-#include <asm-generic/mman.h>
 #include <cutils/ashmem.h>
 #include <gtest/gtest.h>
 #include <hidl/IServiceManager.h>
 #include <utils/StrongPointer.h>
-#include <cstdlib>
-#include <iostream>
-#include <sstream>
+
+#include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
 #include "../common/MessageQueue.h"
 
 // libutils:
@@ -32,9 +29,11 @@ using android::status_t;
 
 // generated
 using android::hardware::tests::msgq::V1_0::ITestMsgQ;
-using std::cerr;
-using std::cout;
-using std::endl;
+
+// libhidl
+using android::hardware::kSynchronizedReadWrite;
+using android::hardware::MQDescriptorSync;
+using android::hardware::MessageQueue;
 
 static int numMessagesMax;
 
@@ -63,18 +62,18 @@ class MQTestClient : public ::testing::Test {
 
     service = ITestMsgQ::getService(client_tests::kServiceName);
     if (service == nullptr) return;
-    service->configure(
-        [this](int32_t bad, const android::hardware::MQDescriptor& in) {
-          if (!bad) {
-            fmsg_queue = new android::hardware::MessageQueue<uint16_t>(in);
-          }
-        });
+    service->configureFmqSyncReadWrite([this](
+        int32_t bad, const MQDescriptorSync& in) {
+      if (!bad) {
+        fmsg_queue = new MessageQueue<uint16_t, kSynchronizedReadWrite>(in);
+      }
+    });
     ASSERT_TRUE(fmsg_queue != nullptr);
     ASSERT_TRUE(fmsg_queue->isValid());
     numMessagesMax = fmsg_queue->getQuantumCount();
   }
   sp<ITestMsgQ> service;
-  android::hardware::MessageQueue<uint16_t>* fmsg_queue;
+  MessageQueue<uint16_t, kSynchronizedReadWrite>* fmsg_queue = nullptr;
 };
 
 /*

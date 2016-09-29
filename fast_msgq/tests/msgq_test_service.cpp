@@ -14,23 +14,15 @@
 * limitations under the License.
 */
 
-#include <iostream>
-#include <map>
-
 #include <../common/MessageQueue.h>
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
 #include <cutils/ashmem.h>
+#include <hidl/IServiceManager.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
-#include <hidl/IServiceManager.h>
 #include <hwbinder/ProcessState.h>
-#include <unistd.h>
-#include <utils/Errors.h>
-#include <utils/Log.h>
 #include <utils/Looper.h>
 #include <utils/StrongPointer.h>
-
-#include <sys/mman.h>
 
 // libutils:
 using android::Looper;
@@ -49,13 +41,13 @@ using android::hardware::Return;
 using android::hardware::Void;
 
 // Standard library
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::map;
 using std::string;
-using std::unique_ptr;
 using std::vector;
+
+// libhidl
+using android::hardware::kSynchronizedReadWrite;
+using android::hardware::MQDescriptorSync;
+using android::hardware::MessageQueue;
 
 // Generated HIDL files
 using android::hardware::tests::msgq::V1_0::ITestMsgQ;
@@ -108,7 +100,8 @@ class TestMsgQ : public ITestMsgQ {
     return 0;
   }
 
-  virtual Return<void> configure(ITestMsgQ::configure_cb callback) {
+  virtual Return<void> configureFmqSyncReadWrite(
+      ITestMsgQ::configureFmqSyncReadWrite_cb callback) {
     size_t eventQueueTotal = 4096;
     const size_t eventQueueDataSize = 2048;
     int ashmemFd = ashmem_create_region("MessageQueue", eventQueueTotal);
@@ -116,27 +109,35 @@ class TestMsgQ : public ITestMsgQ {
     /*
      * The native handle will contain the fds to be mapped.
      */
-    native_handle_t* mq_handle = native_handle_create(1, 0);
+    native_handle_t* mq_handle =
+        native_handle_create(1 /* numFds */, 0 /* numInts */);
     if (!mq_handle) {
       ALOGE("Unable to create native_handle_t");
-      callback(-1, android::hardware::MQDescriptor(
-                       std::vector<android::hardware::GrantorDescriptor>(),
-                       nullptr, 0, 0));
+      callback(-1 /* ret */, MQDescriptorSync
+               (std::vector<android::hardware::GrantorDescriptor>(),
+                       nullptr /* nhandle */, 0 /* size */));
       return Void();
     }
 
     mq_handle->data[0] = ashmemFd;
 
-    android::hardware::MQDescriptor mydesc(eventQueueDataSize, mq_handle, 0,
-                                           sizeof(uint16_t));
+    MQDescriptorSync mydesc(eventQueueDataSize, mq_handle,
+                                     sizeof(uint16_t));
     if (fmsg_queue) {
       delete fmsg_queue;
     }
-    fmsg_queue = new android::hardware::MessageQueue<uint16_t>(mydesc);
-    callback(0, mydesc);
+    fmsg_queue = new MessageQueue<uint16_t, kSynchronizedReadWrite>(mydesc);
+    if (fmsg_queue == nullptr) {
+      callback(-1 /* ret */, MQDescriptorSync(
+                   std::vector<android::hardware::GrantorDescriptor>(),
+                   nullptr /* nhandle */, 0 /* size */));
+    } else {
+      callback(0 /* ret */, mydesc);
+    }
     return Void();
   }
-  android::hardware::MessageQueue<uint16_t>* fmsg_queue;
+  android::hardware::MessageQueue<uint16_t,
+      android::hardware::kSynchronizedReadWrite>* fmsg_queue;
 
  private:
   /*

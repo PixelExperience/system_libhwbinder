@@ -15,18 +15,16 @@
 */
 
 #include <android-base/logging.h>
-#include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
-#include <asm-generic/mman.h>
 #include <cutils/ashmem.h>
+
 #include <gtest/gtest.h>
 #include <hidl/IServiceManager.h>
 #include <utils/StrongPointer.h>
 #include <chrono>
-#include <cstdlib>
 #include <iostream>
-#include <sstream>
+
+#include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
 #include "../common/MessageQueue.h"
-#include "cutils/trace.h"
 
 // libutils:
 using android::OK;
@@ -39,7 +37,10 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-using namespace android::hardware;
+// libhidl
+using android::hardware::kSynchronizedReadWrite;
+using android::hardware::MQDescriptorSync;
+using android::hardware::MessageQueue;
 
 /*
  * All the benchmark cases will be performed on an FMQ of size kQueueSize.
@@ -78,9 +79,11 @@ class MQTestClient : public ::testing::Test {
     /*
      * Request service to configure the client inbox queue.
      */
-   service->ConfigureClientInbox([this](int32_t bad, const MQDescriptor& in) {
+    service->configureClientInboxSyncReadWrite
+        ([this](int32_t bad, const MQDescriptorSync& in) {
           if (!bad) {
-            fmsg_queue_inbox_ = new MessageQueue<uint8_t>(in);
+            fmsg_queue_inbox_ = new MessageQueue<uint8_t,
+                              kSynchronizedReadWrite>(in);
           }
         });
 
@@ -89,10 +92,11 @@ class MQTestClient : public ::testing::Test {
     /*
      * Reqeust service to configure the client outbox queue.
      */
-    service->ConfigureClientOutbox(
-        [this](int32_t bad, const MQDescriptor& out) {
+    service->configureClientOutboxSyncReadWrite(
+        [this](int32_t bad, const MQDescriptorSync& out) {
           if (!bad) {
-           fmsg_queue_outbox_ = new MessageQueue<uint8_t>(out);
+            fmsg_queue_outbox_ = new MessageQueue<uint8_t,
+                               kSynchronizedReadWrite>(out);
           }
         });
 
@@ -100,8 +104,10 @@ class MQTestClient : public ::testing::Test {
     ASSERT_TRUE(fmsg_queue_outbox_->isValid());
   }
   sp<IBenchmarkMsgQ> service;
-  android::hardware::MessageQueue<uint8_t>* fmsg_queue_inbox_ = nullptr;
-  android::hardware::MessageQueue<uint8_t>* fmsg_queue_outbox_ = nullptr;
+  android::hardware::MessageQueue<uint8_t, kSynchronizedReadWrite>*
+      fmsg_queue_inbox_ = nullptr;
+  android::hardware::MessageQueue<uint8_t, kSynchronizedReadWrite>*
+      fmsg_queue_outbox_ = nullptr;
 };
 
 /*
@@ -119,7 +125,7 @@ TEST_F(MQTestClient, BenchMarkMeasurePingPongTransfer) {
    * This method requests the service to create a thread which reads
    * from fmsg_queue_outbox_ and writes into fmsg_queue_inbox_.
    */
-  service->BenchmarkPingPong(kNumIterations);
+  service->benchmarkPingPong(kNumIterations);
   std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
       std::chrono::high_resolution_clock::now();
   while (num_round_trips < kNumIterations) {
@@ -152,7 +158,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead64Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize64;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->RequestWrite(kQueueSize);
+    int32_t write_count = service->requestWrite(kQueueSize);
     ASSERT_TRUE(write_count == kQueueSize);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
@@ -183,7 +189,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead128Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize128;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->RequestWrite(kQueueSize);
+    int32_t write_count = service->requestWrite(kQueueSize);
     ASSERT_TRUE(write_count == kQueueSize);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
@@ -214,7 +220,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead256Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize256;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->RequestWrite(kQueueSize);
+    int32_t write_count = service->requestWrite(kQueueSize);
     ASSERT_TRUE(write_count == kQueueSize);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
@@ -244,7 +250,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead512Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize512;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->RequestWrite(kQueueSize);
+    int32_t write_count = service->requestWrite(kQueueSize);
     ASSERT_TRUE(write_count == kQueueSize);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
@@ -287,7 +293,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite64Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->RequestRead(kQueueSize);
+    int32_t read_count = service->requestRead(kQueueSize);
     ASSERT_TRUE(read_count == kQueueSize);
   }
   accumulated_time /= (num_loops * kNumIterations);
@@ -317,7 +323,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite128Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->RequestRead(kQueueSize);
+    int32_t read_count = service->requestRead(kQueueSize);
     ASSERT_TRUE(read_count == kQueueSize);
   }
   accumulated_time /= (num_loops * kNumIterations);
@@ -347,7 +353,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite256Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->RequestRead(kQueueSize);
+    int32_t read_count = service->requestRead(kQueueSize);
     ASSERT_TRUE(read_count == kQueueSize);
   }
   accumulated_time /= (num_loops * kNumIterations);
@@ -379,7 +385,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite512Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->RequestRead(kQueueSize);
+    int32_t read_count = service->requestRead(kQueueSize);
     ASSERT_TRUE(read_count == kQueueSize);
   }
   accumulated_time /= (num_loops * kNumIterations);
@@ -401,8 +407,8 @@ TEST_F(MQTestClient, BenchMarkMeasureServiceWriteClientRead) {
    * This method causes the service to create a thread which writes
    * into the fmsg_queue_inbox_ queue kNumIterations packets.
    */
-  service->BenchmarkServiceWriteClientRead(kNumIterations);
-  hidl_vec<int64_t> client_rcv_time_array;
+  service->benchmarkServiceWriteClientRead(kNumIterations);
+  android::hardware::hidl_vec<int64_t> client_rcv_time_array;
   client_rcv_time_array.resize(kNumIterations);
   for (uint32_t i = 0; i < kNumIterations; i++) {
     do {
@@ -410,6 +416,6 @@ TEST_F(MQTestClient, BenchMarkMeasureServiceWriteClientRead) {
           std::chrono::high_resolution_clock::now().time_since_epoch().count();
     } while (fmsg_queue_inbox_->read(data, kPacketSize64) == 0);
   }
-  service->SendTimeData(client_rcv_time_array);
+  service->sendTimeData(client_rcv_time_array);
   delete[] data;
 }
