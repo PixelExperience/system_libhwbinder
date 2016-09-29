@@ -26,9 +26,7 @@ static const int queue_size = 1024;
 class MQTests : public ::testing::Test {
  protected:
   virtual void TearDown() {
-    if (fmsgq) {
       delete fmsgq;
-    }
   }
 
   virtual void SetUp() {
@@ -36,7 +34,8 @@ class MQTests : public ::testing::Test {
     int ashmemFd = ashmem_create_region("MessageQueue", eventQueueTotal);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
     ASSERT_TRUE(ashmemFd >= 0);
-    native_handle_t* mq_handle = native_handle_create(1, 0);
+    native_handle_t* mq_handle = native_handle_create(1 /* numFds */,
+                                                      0 /* numInts */);
     ASSERT_TRUE(mq_handle != nullptr);
     /*
      * The native handle will contain the fds to be
@@ -44,14 +43,16 @@ class MQTests : public ::testing::Test {
      */
     mq_handle->data[0] = ashmemFd;
 
-    android::hardware::MQDescriptor mydesc(queue_size, mq_handle, 0,
-                                           sizeof(uint8_t));
-    fmsgq = new android::hardware::MessageQueue<uint8_t>(mydesc);
+    android::hardware::MQDescriptorSync mydesc(queue_size, mq_handle,
+                                               sizeof(uint8_t));
+    fmsgq = new android::hardware::MessageQueue<uint8_t,
+          android::hardware::kSynchronizedReadWrite>(mydesc);
     ASSERT_TRUE(fmsgq != nullptr);
     ASSERT_TRUE(fmsgq->isValid());
   }
 
-  android::hardware::MessageQueue<uint8_t>* fmsgq;
+  android::hardware::MessageQueue<uint8_t,
+      android::hardware::kSynchronizedReadWrite>* fmsgq = nullptr;
 };
 
 /*
