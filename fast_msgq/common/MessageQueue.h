@@ -25,9 +25,9 @@
 namespace android {
 namespace hardware {
 
-template <typename T>
+template <typename T, MQFlavor flavor>
 struct MessageQueue {
-  MessageQueue(const MQDescriptor& Desc);
+  MessageQueue(const MQDescriptorSync& Desc);
   ~MessageQueue();
 
   size_t availableToWrite() const;
@@ -40,7 +40,7 @@ struct MessageQueue {
   bool read(T* data);
   bool write(const T* data, size_t count);
   bool read(T* data, size_t count);
-  const MQDescriptor* getDesc() const { return &mDesc; }
+  const MQDescriptor<flavor>* getDesc() const { return &mDesc; }
 
  private:
   struct region {
@@ -66,59 +66,61 @@ struct MessageQueue {
 
   void* mapGrantorDescr(uint32_t grantor_idx);
   void unmapGrantorDescr(void* address, uint32_t grantor_idx);
-  MQDescriptor mDesc;
+  MQDescriptor<flavor> mDesc;
   uint8_t* mRing;
   std::atomic<uint64_t>* mReadPtr;
   std::atomic<uint64_t>* mWritePtr;
 };
 
-template <typename T>
-MessageQueue<T>::MessageQueue(const MQDescriptor& Desc) : mDesc(Desc) {
+template <typename T, MQFlavor flavor>
+MessageQueue<T, flavor>::MessageQueue(const MQDescriptorSync& Desc)
+    : mDesc(Desc) {
   /*
    * Verify that the the Descriptor contains the minimum number of grantors
    * the native_handle is valid and T matches quantum size.
    */
   if (!Desc.isHandleValid() ||
-      (Desc.countGrantors() < MQDescriptor::kMinGrantorCount) ||
+      (Desc.countGrantors() < MQDescriptor<flavor>::kMinGrantorCount) ||
       (Desc.getQuantum() != sizeof(T))) {
     return;
   }
 
   mReadPtr =
-      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr
-                                               (MQDescriptor::READPTRPOS));
+      reinterpret_cast<std::atomic<uint64_t>*>
+      (mapGrantorDescr(MQDescriptor<flavor>::READPTRPOS));
   CHECK(mReadPtr != nullptr);
 
   mWritePtr =
-      reinterpret_cast<std::atomic<uint64_t>*>(mapGrantorDescr
-                                               (MQDescriptor::WRITEPTRPOS));
+      reinterpret_cast<std::atomic<uint64_t>*>
+      (mapGrantorDescr(MQDescriptor<flavor>::WRITEPTRPOS));
   CHECK(mWritePtr != nullptr);
 
   mReadPtr->store(0, std::memory_order_acquire);
   mWritePtr->store(0, std::memory_order_acquire);
 
   mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr
-                                     (MQDescriptor::DATAPTRPOS));
+                                     (MQDescriptor<flavor>::DATAPTRPOS));
   CHECK(mRing != nullptr);
 }
 
-template <typename T>
-MessageQueue<T>::~MessageQueue() {
-  if (mReadPtr) unmapGrantorDescr(mReadPtr, MQDescriptor::READPTRPOS);
-  if (mWritePtr) unmapGrantorDescr(mWritePtr, MQDescriptor::WRITEPTRPOS);
-  if (mRing) unmapGrantorDescr(mRing, MQDescriptor::DATAPTRPOS);
+template <typename T, MQFlavor flavor>
+MessageQueue<T, flavor>::~MessageQueue() {
+  if (mReadPtr) unmapGrantorDescr(mReadPtr, MQDescriptor<flavor>::READPTRPOS);
+  if (mWritePtr) unmapGrantorDescr(mWritePtr,
+                                   MQDescriptor<flavor>::WRITEPTRPOS);
+  if (mRing) unmapGrantorDescr(mRing, MQDescriptor<flavor>::DATAPTRPOS);
 }
-template <typename T>
-bool MessageQueue<T>::write(const T* data) {
+template <typename T, MQFlavor flavor>
+bool MessageQueue<T, flavor>::write(const T* data) {
   return write(data, 1);
 }
 
-template <typename T>
-bool MessageQueue<T>::read(T* data) {
+template <typename T, MQFlavor flavor>
+bool MessageQueue<T, flavor>::read(T* data) {
   return read(data, 1);
 }
-template <typename T>
-bool MessageQueue<T>::write(const T* data, size_t count) {
+template <typename T, MQFlavor flavor>
+bool MessageQueue<T, flavor>::write(const T* data, size_t count) {
   if (availableToWrite() < sizeof(T) * count) {
     return false;
   }
@@ -127,8 +129,8 @@ bool MessageQueue<T>::write(const T* data, size_t count) {
                      sizeof(T) * count) == sizeof(T) * count);
 }
 
-template <typename T>
-bool MessageQueue<T>::read(T* data, size_t count) {
+template <typename T, MQFlavor flavor>
+bool MessageQueue<T, flavor>::read(T* data, size_t count) {
   if (availableToRead() < sizeof(T) * count) {
     return false;
   }
@@ -136,13 +138,13 @@ bool MessageQueue<T>::read(T* data, size_t count) {
          sizeof(T) * count;
 }
 
-template <typename T>
-size_t MessageQueue<T>::availableToWrite() const {
+template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::availableToWrite() const {
   return mDesc.getSize() - availableToRead();
 }
 
-template <typename T>
-size_t MessageQueue<T>::writeBytes(const uint8_t* data, size_t size) {
+template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::writeBytes(const uint8_t* data, size_t size) {
   transaction tx = beginWrite(size);
   memcpy(tx.first.address, data, tx.first.length);
   memcpy(tx.second.address, data + tx.first.length, tx.second.length);
@@ -156,8 +158,8 @@ size_t MessageQueue<T>::writeBytes(const uint8_t* data, size_t size) {
  * checked by write() API which invokes writeBytes() which in turn calls
  * beginWrite().
  */
-template <typename T>
-typename MessageQueue<T>::transaction MessageQueue<T>::beginWrite(
+template <typename T, MQFlavor flavor>
+typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginWrite(
     size_t nBytesDesired) const {
   transaction result;
   auto readPtr = mReadPtr->load(std::memory_order_acquire);
@@ -175,15 +177,15 @@ typename MessageQueue<T>::transaction MessageQueue<T>::beginWrite(
   return result;
 }
 
-template <typename T>
-void MessageQueue<T>::commitWrite(size_t nBytesWritten) {
+template <typename T, MQFlavor flavor>
+void MessageQueue<T, flavor>::commitWrite(size_t nBytesWritten) {
   auto writePtr = mWritePtr->load(std::memory_order_relaxed);
   writePtr += nBytesWritten;
   mWritePtr->store(writePtr, std::memory_order_release);
 }
 
-template <typename T>
-size_t MessageQueue<T>::availableToRead() const {
+template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::availableToRead() const {
   /*
    * Doing relaxed loads here because these accesses don't carry dependencies.
    * Dependent accesses won't happen until after a call to beginWrite or
@@ -194,8 +196,8 @@ size_t MessageQueue<T>::availableToRead() const {
          mReadPtr->load(std::memory_order_relaxed);
 }
 
-template <typename T>
-size_t MessageQueue<T>::readBytes(uint8_t* data, size_t size) {
+template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::readBytes(uint8_t* data, size_t size) {
   transaction tx = beginRead(size);
   memcpy(data, tx.first.address, tx.first.length);
   memcpy(data + tx.first.length, tx.second.address, tx.second.length);
@@ -209,8 +211,8 @@ size_t MessageQueue<T>::readBytes(uint8_t* data, size_t size) {
  * to read because the check is performed in the read() method before
  * readBytes() is invoked.
  */
-template <typename T>
-typename MessageQueue<T>::transaction MessageQueue<T>::beginRead(
+template <typename T, MQFlavor flavor>
+typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginRead(
     size_t nBytesDesired) const {
   transaction result;
   auto writePtr = mWritePtr->load(std::memory_order_acquire);
@@ -231,30 +233,30 @@ typename MessageQueue<T>::transaction MessageQueue<T>::beginRead(
   return result;
 }
 
-template <typename T>
-void MessageQueue<T>::commitRead(size_t nBytesRead) {
+template <typename T, MQFlavor flavor>
+void MessageQueue<T, flavor>::commitRead(size_t nBytesRead) {
   auto readPtr = mReadPtr->load(std::memory_order_relaxed);
   readPtr += nBytesRead;
   mReadPtr->store(readPtr, std::memory_order_release);
 }
 
-template <typename T>
-size_t MessageQueue<T>::getQuantumSize() const {
+template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::getQuantumSize() const {
   return mDesc.getQuantum();
 }
 
-template <typename T>
-size_t MessageQueue<T>::getQuantumCount() const {
+template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::getQuantumCount() const {
   return mDesc.getSize() / mDesc.getQuantum();
 }
 
-template <typename T>
-bool MessageQueue<T>::isValid() const {
+template <typename T, MQFlavor flavor>
+bool MessageQueue<T, flavor>::isValid() const {
   return mRing != nullptr && mReadPtr != nullptr && mWritePtr != nullptr;
 }
 
-template <typename T>
-void* MessageQueue<T>::mapGrantorDescr(uint32_t grantor_idx) {
+template <typename T, MQFlavor flavor>
+void* MessageQueue<T, flavor>::mapGrantorDescr(uint32_t grantor_idx) {
   const native_handle_t* handle = mDesc.getNativeHandle()->handle();
   auto mGrantors = mDesc.getGrantors();
   int fdIndex = mGrantors[grantor_idx].fdIndex;
@@ -273,8 +275,9 @@ void* MessageQueue<T>::mapGrantorDescr(uint32_t grantor_idx) {
              (mGrantors[grantor_idx].offset - mapOffset);
 }
 
-template <typename T>
-void MessageQueue<T>::unmapGrantorDescr(void* address, uint32_t grantor_idx) {
+template <typename T, MQFlavor flavor>
+void MessageQueue<T, flavor>::unmapGrantorDescr(void* address,
+                                                uint32_t grantor_idx) {
   const native_handle_t* handle = mDesc.getNativeHandle()->handle();
   auto mGrantors = mDesc.getGrantors();
   int mapOffset = (mGrantors[grantor_idx].offset / PAGE_SIZE) * PAGE_SIZE;
