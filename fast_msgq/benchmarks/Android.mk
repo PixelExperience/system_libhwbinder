@@ -21,7 +21,7 @@ LOCAL_MODULE := mq_benchmark_service
 LOCAL_SRC_FILES := \
     msgq_benchmark_service.cpp
 
-LOCAL_SHARED_LIBRARIES := libhwbinder libbase libcutils libutils libhidl
+LOCAL_SHARED_LIBRARIES := libhwbinder libbase liblog libcutils libutils libhidl
 LOCAL_SHARED_LIBRARIES += android.hardware.benchmarks.msgq@1.0
 include $(BUILD_EXECUTABLE)
 
