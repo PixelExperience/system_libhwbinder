@@ -371,6 +371,9 @@ public:
     status_t            quickFindBuffer(const void *ptr,
                                         size_t *handle // valid if found
                                        ) const;
+
+private:
+    status_t            incrementNumReferences();
     bool                validateBufferChild(size_t child_buffer_handle,
                                             size_t child_offset) const;
     bool                validateBufferParent(size_t parent_buffer_handle,
@@ -453,6 +456,7 @@ private:
     size_t              mObjectsSize;
     size_t              mObjectsCapacity;
     mutable size_t      mNextObjectHint;
+    size_t              mNumRef;
 
     mutable bool        mFdsKnown;
     mutable bool        mHasFds;
