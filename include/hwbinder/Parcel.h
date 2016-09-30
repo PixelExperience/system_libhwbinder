@@ -49,7 +49,7 @@ public:
 
                         Parcel();
                         ~Parcel();
-    
+
     const uint8_t*      data() const;
     size_t              dataSize() const;
     size_t              dataAvail() const;
@@ -59,7 +59,7 @@ public:
     status_t            setDataSize(size_t size);
     void                setDataPosition(size_t pos) const;
     status_t            setDataCapacity(size_t size);
-    
+
     status_t            setData(const uint8_t* buffer, size_t len);
 
     status_t            appendFrom(const Parcel *parcel,
@@ -92,10 +92,10 @@ private:
 
 public:
     size_t              objectsCount() const;
-    
+
     status_t            errorCheck() const;
     void                setError(status_t err);
-    
+
     status_t            write(const void* data, size_t len);
     void*               writeInplace(size_t len);
     status_t            writeUnpadded(const void* data, size_t len);
@@ -157,12 +157,12 @@ public:
     // when this function returns).
     // Doesn't take ownership of the native_handle.
     status_t            writeNativeHandle(const native_handle* handle);
-    
+
     // Place a file descriptor into the parcel.  The given fd must remain
     // valid for the lifetime of the parcel.
     // The Parcel does not take ownership of the given fd unless you ask it to.
     status_t            writeFileDescriptor(int fd, bool takeOwnership = false);
-    
+
     // Place a file descriptor into the parcel.  A dup of the fd is made, which
     // will be closed once the parcel is destroyed.
     status_t            writeDupFileDescriptor(int fd);
@@ -199,13 +199,22 @@ public:
     status_t            writeBuffer(const void *buffer, size_t length, size_t *handle);
     status_t            writeEmbeddedBuffer(const void *buffer, size_t length, size_t *handle,
                             size_t parent_buffer_handle, size_t parent_offset);
+    status_t            writeReference(size_t *handle,
+                                       size_t child_buffer_handle, size_t child_offset);
+    status_t            writeEmbeddedReference(size_t *handle,
+                                               size_t child_buffer_handle, size_t child_offset,
+                                               size_t parent_buffer_handle, size_t parent_offset);
+    status_t            writeNullReference(size_t *handle);
+    status_t            writeEmbeddedNullReference(size_t *handle,
+                                                   size_t parent_buffer_handle, size_t parent_offset);
+
 
     status_t            writeEmbeddedNativeHandle(const native_handle_t *handle,
                             size_t parent_buffer_handle, size_t parent_offset);
     status_t            writeNativeHandleNoDup(const native_handle* handle);
 
     void                remove(size_t start, size_t amt);
-    
+
     status_t            read(void* outData, size_t len) const;
     const void*         readInplace(size_t len) const;
     status_t            readInt8(int8_t *pArg) const;
@@ -282,11 +291,11 @@ public:
 
     // Retrieve native_handle from the parcel. This returns a copy of the
     // parcel's native_handle (the caller takes ownership). The caller
-    // must free the native_handle with native_handle_close() and 
+    // must free the native_handle with native_handle_close() and
     // native_handle_delete().
     native_handle*     readNativeHandle() const;
 
-    
+
     // Retrieve a file descriptor from the parcel.  This returns the raw fd
     // in the parcel, which you do not own -- use dup() to get your own copy.
     int                 readFileDescriptor() const;
@@ -312,6 +321,11 @@ public:
     const void*         readBuffer(size_t *buffer_handle) const;
     const void*         readEmbeddedBuffer(size_t *buffer_handle,
                            size_t parent_buffer_handle, size_t parent_offset) const;
+    status_t            readReference(void const* *bufptr,
+                                      size_t *buffer_handle, bool *isRef) const;
+    status_t            readEmbeddedReference(void const* *bufptr, size_t *buffer_handle,
+                                              size_t parent_buffer_handle, size_t parent_offset,
+                                              bool *isRef) const;
     const native_handle_t* readEmbeddedNativeHandle(size_t parent_buffer_handle,
                            size_t parent_offset) const;
     const native_handle_t* readNativeHandleNoDup() const;
@@ -323,11 +337,51 @@ public:
     static size_t       getGlobalAllocCount();
 
 private:
+    // Below is a cache that records some information about all actual buffers
+    // in this parcel.
+    struct BufferInfo {
+        size_t index;
+        binder_uintptr_t buffer;
+        binder_uintptr_t bufend; // buffer + length
+    };
+    // value of mObjectSize when mBufCache is last updated.
+    mutable size_t                  mBufCachePos;
+    mutable std::vector<BufferInfo> mBufCache;
+    // clear mBufCachePos and mBufCache.
+    void                clearCache() const;
+    // update mBufCache for all objects between mBufCachePos and mObjectsSize
+    void                updateCache() const;
+public:
+
+    // The following two methods attempt to find if a chunk of memory ("buffer")
+    // is written / read before (by (read|write)(Embedded)?Buffer methods. )
+    // 1. Call findBuffer if the chunk of memory could be a small part of a larger
+    //    buffer written before (for example, an element of a hidl_vec). The
+    //    method will also ensure that the end address (ptr + length) is also
+    //    within the buffer.
+    // 2. Call quickFindBuffer if the buffer could only be written previously
+    //    by itself (for example, the mBuffer field of a hidl_vec). No lengths
+    //    are checked.
+    status_t            findBuffer(const void *ptr,
+                                   size_t length,
+                                   bool *found,
+                                   size_t *handle,
+                                   size_t *offset // valid if found
+                                  ) const;
+    status_t            quickFindBuffer(const void *ptr,
+                                        size_t *handle // valid if found
+                                       ) const;
+    bool                validateBufferChild(size_t child_buffer_handle,
+                                            size_t child_offset) const;
+    bool                validateBufferParent(size_t parent_buffer_handle,
+                                             size_t parent_offset) const;
+
+private:
     typedef void        (*release_func)(Parcel* parcel,
                                         const uint8_t* data, size_t dataSize,
                                         const binder_size_t* objects, size_t objectsSize,
                                         void* cookie);
-                        
+
     uintptr_t           ipcData() const;
     size_t              ipcDataSize() const;
     uintptr_t           ipcObjects() const;
@@ -336,14 +390,14 @@ private:
     void                ipcSetDataReference(const uint8_t* data, size_t dataSize,
                                             const binder_size_t* objects, size_t objectsCount,
                                             release_func relFunc, void* relCookie);
-    
+
 public:
     void                print(TextOutput& to, uint32_t flags = 0) const;
 
 private:
                         Parcel(const Parcel& o);
     Parcel&             operator=(const Parcel& o);
-    
+
     status_t            finishWrite(size_t len);
     void                releaseObjects();
     void                acquireObjects();
@@ -356,7 +410,7 @@ private:
     void                freeDataNoInit();
     void                initState();
     void                scanForFds() const;
-                        
+
     template<class T>
     status_t            readAligned(T *pArg) const;
 
