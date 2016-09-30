@@ -94,6 +94,7 @@ static size_t gMaxFds = 0;
 
 // Maximum size of a blob to transfer in-place.
 static const size_t BLOB_INPLACE_LIMIT = 16 * 1024;
+static const size_t PARCEL_REF_CAP = 1024;
 
 enum {
     BLOB_INPLACE = 0,
@@ -1384,11 +1385,20 @@ status_t Parcel::writeBuffer(const void *buffer, size_t length, size_t *handle)
     return writeObject(obj, true /* nullMetaData */);
 }
 
+status_t Parcel::incrementNumReferences() {
+    ++mNumRef;
+    LOG_BUFFER("incrementNumReferences: %zu", mNumRef);
+    return mNumRef <= PARCEL_REF_CAP ? OK : NO_MEMORY;
+}
+
 status_t Parcel::writeReference(size_t *handle,
         size_t child_buffer_handle, size_t child_offset) {
     LOG_BUFFER("writeReference(child = (%zu, %zu)) -> %zu",
         child_buffer_handle, child_offset,
         mObjectsSize);
+    status_t status = incrementNumReferences();
+    if (status != OK)
+        return status;
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.flags = BINDER_BUFFER_REF;
@@ -1411,6 +1421,9 @@ status_t Parcel::writeEmbeddedReference(size_t *handle,
         child_buffer_handle, child_offset,
         parent_buffer_handle, parent_offset,
         mObjectsSize);
+    status_t status = incrementNumReferences();
+    if (status != OK)
+        return status;
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.flags = BINDER_BUFFER_REF | BINDER_BUFFER_HAS_PARENT;
@@ -1431,6 +1444,9 @@ status_t Parcel::writeEmbeddedReference(size_t *handle,
 
 status_t Parcel::writeNullReference(size_t * handle) {
     LOG_BUFFER("writeNullReference -> %zu", mObjectsSize);
+    status_t status = incrementNumReferences();
+    if (status != OK)
+        return status;
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.flags = BINDER_BUFFER_REF | BINDER_BUFFER_NULLPTR;
@@ -1446,6 +1462,9 @@ status_t Parcel::writeEmbeddedNullReference(size_t * handle,
         parent_buffer_handle,
         parent_offset,
         mObjectsSize);
+    status_t status = incrementNumReferences();
+    if (status != OK)
+        return status;
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.flags = BINDER_BUFFER_REF | BINDER_BUFFER_HAS_PARENT | BINDER_BUFFER_NULLPTR;
@@ -2508,6 +2527,7 @@ void Parcel::ipcSetDataReference(const uint8_t* data, size_t dataSize,
     mObjectsSize = mObjectsCapacity = objectsCount;
     mNextObjectHint = 0;
     clearCache();
+    mNumRef = 0;
     mOwner = relFunc;
     mOwnerCookie = relCookie;
     for (size_t i = 0; i < mObjectsSize; i++) {
@@ -2681,6 +2701,7 @@ status_t Parcel::restartWrite(size_t desired)
     mNextObjectHint = 0;
     mHasFds = false;
     clearCache();
+    mNumRef = 0;
     mFdsKnown = true;
     mAllowFds = true;
 
@@ -2868,6 +2889,7 @@ void Parcel::initState()
     mOwner = NULL;
     mOpenAshmemSize = 0;
     clearCache();
+    mNumRef = 0;
 
     // racing multiple init leads only to multiple identical write
     if (gMaxFds == 0) {
