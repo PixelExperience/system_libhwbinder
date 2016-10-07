@@ -27,7 +27,7 @@
 #include <utils/String16.h>
 #include <utils/Vector.h>
 
-#include <hwbinder/binder_kernel.h>
+#include <linux/android/binder.h>
 
 #include <hwbinder/IInterface.h>
 
@@ -473,7 +473,7 @@ private:
         void clear();
         void release();
         inline size_t size() const { return mSize; }
-        inline int fd() const { return mFd; };
+        inline int fd() const { return mFd; }
         inline bool isMutable() const { return mMutable; }
 
     protected:
@@ -577,7 +577,7 @@ status_t Parcel::readTypedVector(std::vector<T>* val,
 template<typename T>
 status_t Parcel::readNullableTypedVector(std::unique_ptr<std::vector<T>>* val,
                                          status_t(Parcel::*read_func)(T*) const) const {
-    const int32_t start = dataPosition();
+    const size_t start = dataPosition();
     int32_t size;
     status_t status = readInt32(&size);
     val->reset();
