@@ -21,6 +21,7 @@
 #include <hwbinder/Binder.h>
 #include <hwbinder/BpBinder.h>
 #include <hwbinder/TextOutput.h>
+#include <hwbinder/binder_kernel.h>
 
 #include <cutils/sched_policy.h>
 #include <utils/Log.h>

@@ -36,6 +36,7 @@
 #include <hwbinder/Parcel.h>
 #include <hwbinder/ProcessState.h>
 #include <hwbinder/TextOutput.h>
+#include <hwbinder/binder_kernel.h>
 
 #include <cutils/ashmem.h>
 #include <utils/Debug.h>
