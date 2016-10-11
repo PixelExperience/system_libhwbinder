@@ -1137,7 +1137,11 @@ status_t Parcel::writeWeakBinder(const wp<IBinder>& val)
 
 status_t Parcel::writeNativeHandle(const native_handle* handle)
 {
-    if (!handle || handle->version != sizeof(native_handle))
+    if (handle == nullptr) {
+        return BAD_VALUE;
+    }
+
+    if (handle->version != sizeof(native_handle))
         return BAD_TYPE;
 
     status_t err;
@@ -1555,6 +1559,10 @@ status_t Parcel::quickFindBuffer(const void *ptr, size_t *handle) const {
 
 status_t Parcel::writeNativeHandleNoDup(const native_handle_t *handle)
 {
+    if (handle == nullptr) {
+        return BAD_VALUE;
+    }
+
     struct binder_fd_array_object fd_array;
     size_t buffer_handle;
     // A native handle consists of a buffer with file desctiptors inside
@@ -1575,6 +1583,9 @@ status_t Parcel::writeEmbeddedNativeHandle(const native_handle_t *handle,
                                            size_t parent_buffer_handle,
                                            size_t parent_offset)
 {
+    if (handle == nullptr) {
+        return BAD_VALUE;
+    }
     struct binder_fd_array_object fd_array;
     size_t buffer_handle;
     // A native handle consists of a buffer with file desctiptors inside
