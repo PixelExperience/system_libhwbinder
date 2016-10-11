@@ -61,6 +61,7 @@ class HwBinderWorkerService : public BBinder
         (void) flags;
         (void) data;
         (void) reply;
+        (void) callback;
         switch (code) {
             case HWBINDER_NOP:
                 return NO_ERROR;
@@ -147,7 +148,7 @@ struct ProcResults {
     // Combine two sets of latency data points and update the aggregation info.
     static ProcResults combine(const ProcResults& a, const ProcResults& b) {
         ProcResults ret;
-        for (int i = 0; i < num_buckets; i++) {
+        for (uint32_t i = 0; i < num_buckets; i++) {
             ret.m_buckets[i] = a.m_buckets[i] + b.m_buckets[i];
         }
         ret.m_worst = max(a.m_worst, b.m_worst);
@@ -171,7 +172,7 @@ struct ProcResults {
              << endl;
 
         uint64_t cur_total = 0;
-        for (int i = 0; i < num_buckets; i++) {
+        for (uint32_t i = 0; i < num_buckets; i++) {
             float cur_time = time_per_bucket_ms * i + 0.5f * time_per_bucket_ms;
             if ((cur_total < 0.5f * m_transactions)
                 && (cur_total + m_buckets[i] >= 0.5f * m_transactions)) {
@@ -283,14 +284,14 @@ Pipe make_worker(int num, int iterations, int worker_count)
 
 void wait_all(vector<Pipe>& v)
         {
-    for (int i = 0; i < v.size(); i++) {
+    for (size_t i = 0; i < v.size(); i++) {
         v[i].wait();
     }
 }
 
 void signal_all(vector<Pipe>& v)
         {
-    for (int i = 0; i < v.size(); i++) {
+    for (size_t i = 0; i < v.size(); i++) {
         v[i].signal();
     }
 }
