@@ -21,7 +21,6 @@
 #include <sstream>
 #include "../common/MessageQueue.h"
 
-static const int queue_size = 1024;
 
 class MQTests : public ::testing::Test {
  protected:
@@ -30,8 +29,23 @@ class MQTests : public ::testing::Test {
   }
 
   virtual void SetUp() {
-    size_t eventQueueTotal = 4096;
-    int ashmemFd = ashmem_create_region("MessageQueue", eventQueueTotal);
+    static constexpr size_t kNumElementsInQueue = 2048;
+    static constexpr size_t kQueueSizeBytes =
+        kNumElementsInQueue * sizeof(uint8_t);
+    /*
+     * The FMQ needs to allocate memory for the ringbuffer as well as for the
+     * read and write pointer counters. Also, Ashmem memory region size needs to
+     * be specified in page-aligned bytes.
+     */
+    static constexpr size_t kAshmemSizePageAligned =
+        (kQueueSizeBytes + 2 * sizeof(android::hardware::RingBufferPosition) +
+         PAGE_SIZE - 1) &
+        ~(PAGE_SIZE - 1);
+    /*
+     * Create an ashmem region to map the memory for the ringbuffer,
+     * read counter and write counter.
+     */
+    int ashmemFd = ashmem_create_region("MessageQueue", kAshmemSizePageAligned);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
     ASSERT_TRUE(ashmemFd >= 0);
     native_handle_t* mq_handle = native_handle_create(1 /* numFds */,
@@ -42,28 +56,33 @@ class MQTests : public ::testing::Test {
      * mapped.
      */
     mq_handle->data[0] = ashmemFd;
-
-    android::hardware::MQDescriptorSync mydesc(queue_size, mq_handle,
+    /*
+     * The FMQ described by this descriptor can hold a maximum of
+     * kQueueSizeBytes bytes or kNumElementsInQueue items of type uint8_t.
+     */
+    android::hardware::MQDescriptorSync mydesc(kQueueSizeBytes, mq_handle,
                                                sizeof(uint8_t));
     fmsgq = new android::hardware::MessageQueue<uint8_t,
           android::hardware::kSynchronizedReadWrite>(mydesc);
     ASSERT_TRUE(fmsgq != nullptr);
     ASSERT_TRUE(fmsgq->isValid());
+    numMessagesMax = fmsgq->getQuantumCount();
+    ASSERT_EQ(numMessagesMax, kNumElementsInQueue);
   }
 
   android::hardware::MessageQueue<uint8_t,
       android::hardware::kSynchronizedReadWrite>* fmsgq = nullptr;
+  size_t numMessagesMax = 0;
 };
 
 /*
  * Verify that a few bytes of data can be successfully written and read.
  */
 TEST_F(MQTests, SmallInputTest1) {
-  const int data_len = 16;
-  int write_count = -1;
-  ASSERT_TRUE(data_len <= queue_size);
+  const size_t data_len = 16;
+  ASSERT_TRUE(data_len <= numMessagesMax);
   uint8_t data[data_len];
-  for (int i = 0; i < data_len; i++) {
+  for (size_t i = 0; i < data_len; i++) {
     data[i] = i & 0xFF;
   }
   ASSERT_TRUE(fmsgq->write(data, data_len));
@@ -77,8 +96,8 @@ TEST_F(MQTests, SmallInputTest1) {
  */
 TEST_F(MQTests, ReadWhenEmpty) {
   ASSERT_TRUE(fmsgq->availableToRead() == 0);
-  const int data_len = 2;
-  ASSERT_TRUE(data_len < queue_size);
+  const size_t data_len = 2;
+  ASSERT_TRUE(data_len <= numMessagesMax);
   uint8_t read_data[data_len];
   ASSERT_FALSE(fmsgq->read(read_data, data_len));
 }
@@ -90,20 +109,17 @@ TEST_F(MQTests, ReadWhenEmpty) {
 
 TEST_F(MQTests, WriteWhenFull) {
   ASSERT_TRUE(fmsgq->availableToRead() == 0);
-  uint8_t* data = new uint8_t[queue_size];
-  for (int i = 0; i < queue_size; i++) {
+  std::vector<uint8_t> data(numMessagesMax);
+  for (size_t i = 0; i < numMessagesMax; i++) {
     data[i] = i & 0xFF;
   }
-  ASSERT_TRUE(fmsgq->write(data, queue_size));
+  ASSERT_TRUE(fmsgq->write(&data[0], numMessagesMax));
   ASSERT_TRUE(fmsgq->availableToWrite() == 0);
-  ASSERT_FALSE(fmsgq->write(data, 1));
+  ASSERT_FALSE(fmsgq->write(&data[0], 1));
 
-  uint8_t* read_data = new uint8_t[queue_size]();
-  ASSERT_TRUE(fmsgq->read(read_data, queue_size));
-  ASSERT_TRUE(memcmp(data, read_data, queue_size) == 0);
-
-  delete[] data;
-  delete[] read_data;
+  std::vector<uint8_t> read_data(numMessagesMax);
+  ASSERT_TRUE(fmsgq->read(&read_data[0], numMessagesMax));
+  ASSERT_TRUE(data == read_data);
 }
 
 /*
@@ -112,16 +128,14 @@ TEST_F(MQTests, WriteWhenFull) {
  * returns the expected data.
  */
 TEST_F(MQTests, LargeInputTest1) {
-  uint8_t* data = new uint8_t[queue_size];
-  for (int i = 0; i < queue_size; i++) {
+  std::vector<uint8_t> data(numMessagesMax);
+  for (size_t i = 0; i < numMessagesMax; i++) {
     data[i] = i & 0xFF;
   }
-  ASSERT_TRUE(fmsgq->write(data, queue_size));
-  uint8_t* read_data = new uint8_t[queue_size]();
-  ASSERT_TRUE(fmsgq->read(read_data, queue_size));
-  ASSERT_TRUE(memcmp(data, read_data, queue_size) == 0);
-  delete[] data;
-  delete[] read_data;
+  ASSERT_TRUE(fmsgq->write(&data[0], numMessagesMax));
+  std::vector<uint8_t> read_data(numMessagesMax);
+  ASSERT_TRUE(fmsgq->read(&read_data[0], numMessagesMax));
+  ASSERT_TRUE(data == read_data);
 }
 
 /*
@@ -131,19 +145,17 @@ TEST_F(MQTests, LargeInputTest1) {
  */
 TEST_F(MQTests, LargeInputTest2) {
   ASSERT_TRUE(fmsgq->availableToRead() == 0);
-  const int data_len = 4096;
-  ASSERT_TRUE(data_len > queue_size);
-  uint8_t* data = new uint8_t[data_len];
-  for (int i = 0; i < data_len; i++) {
+  const size_t data_len = 4096;
+  ASSERT_TRUE(data_len > numMessagesMax);
+  std::vector<uint8_t> data(data_len);
+  for (size_t i = 0; i < data_len; i++) {
     data[i] = i & 0xFF;
   }
-  ASSERT_FALSE(fmsgq->write(data, data_len));
-  uint8_t* read_data = new uint8_t[queue_size]();
-  ASSERT_FALSE(fmsgq->read(read_data, queue_size));
-  ASSERT_FALSE(memcmp(data, read_data, queue_size) == 0);
+  ASSERT_FALSE(fmsgq->write(&data[0], data_len));
+  std::vector<uint8_t> read_data(numMessagesMax);
+  ASSERT_FALSE(fmsgq->read(&read_data[0], numMessagesMax));
+  ASSERT_FALSE(data == read_data);
   ASSERT_TRUE(fmsgq->availableToRead() == 0);
-  delete[] data;
-  delete[] read_data;
 }
 
 /*
@@ -152,33 +164,32 @@ TEST_F(MQTests, LargeInputTest2) {
  * affect the pre-existing data in the queue.
  */
 TEST_F(MQTests, LargeInputTest3) {
-  uint8_t* data = new uint8_t[queue_size];
-  for (int i = 0; i < queue_size; i++) {
+  std::vector<uint8_t> data(numMessagesMax);
+  for (size_t i = 0; i < numMessagesMax; i++) {
     data[i] = i & 0xFF;
   }
-  ASSERT_TRUE(fmsgq->write(data, queue_size));
-  ASSERT_FALSE(fmsgq->write(data, 1));
-  uint8_t* read_data = new uint8_t[queue_size];
-  ASSERT_TRUE(fmsgq->read(read_data, queue_size));
-  ASSERT_TRUE(memcmp(read_data, data, queue_size) == 0);
-  delete[] data;
-  delete[] read_data;
+  ASSERT_TRUE(fmsgq->write(&data[0], numMessagesMax));
+  ASSERT_FALSE(fmsgq->write(&data[0], 1));
+  std::vector<uint8_t> read_data(numMessagesMax);
+  ASSERT_TRUE(fmsgq->read(&read_data[0], numMessagesMax));
+  ASSERT_TRUE(read_data == data);
 }
+
 /*
  * Verify that multiple reads one after the other return expected data.
  */
 TEST_F(MQTests, MultipleRead) {
-  const int chunkSize = 100;
-  const int chunkNum = 5;
+  const size_t chunkSize = 100;
+  const size_t chunkNum = 5;
   const size_t data_len = chunkSize * chunkNum;
-  ASSERT_TRUE(data_len <= queue_size);
+  ASSERT_TRUE(data_len <= numMessagesMax);
   uint8_t data[data_len];
-  for (unsigned int i = 0; i < data_len; i++) {
+  for (size_t i = 0; i < data_len; i++) {
     data[i] = i & 0xFF;
   }
   ASSERT_TRUE(fmsgq->write(data, data_len));
   uint8_t read_data[data_len] = {};
-  for (unsigned int i = 0; i < chunkNum; i++) {
+  for (size_t i = 0; i < chunkNum; i++) {
     ASSERT_TRUE(fmsgq->read(read_data + i * chunkSize, chunkSize));
   }
   ASSERT_TRUE(memcmp(read_data, data, data_len) == 0);
@@ -188,15 +199,15 @@ TEST_F(MQTests, MultipleRead) {
  * Verify that multiple writes one after the other happens correctly.
  */
 TEST_F(MQTests, MultipleWrite) {
-  const int chunkSize = 100;
-  const int chunkNum = 5;
+  const size_t chunkSize = 100;
+  const size_t chunkNum = 5;
   const size_t data_len = chunkSize * chunkNum;
-  ASSERT_TRUE(data_len <= queue_size);
+  ASSERT_TRUE(data_len <= numMessagesMax);
   uint8_t data[data_len];
-  for (unsigned int i = 0; i < data_len; i++) {
+  for (size_t i = 0; i < data_len; i++) {
     data[i] = i & 0xFF;
   }
-  for (unsigned int i = 0; i < chunkNum; i++) {
+  for (size_t i = 0; i < chunkNum; i++) {
     ASSERT_TRUE(fmsgq->write(data + i * chunkSize, chunkSize));
   }
   uint8_t read_data[data_len] = {};
@@ -207,21 +218,19 @@ TEST_F(MQTests, MultipleWrite) {
 /*
  * Write enough messages into the FMQ to fill half of it
  * and read back the same.
- * Write queue_size messages into the queue. This will cause a
+ * Write numMessagesMax messages into the queue. This will cause a
  * wrap around. Read and verify the data.
  */
 TEST_F(MQTests, ReadWriteWrapAround) {
-  size_t numMessages = queue_size / 2;
-  uint8_t* data = new uint8_t[queue_size];
-  uint8_t* read_data = new uint8_t[queue_size]();
-  for (int i = 0; i < queue_size; i++) {
+  size_t numMessages = numMessagesMax / 2;
+  std::vector<uint8_t> data(numMessagesMax);
+  std::vector<uint8_t> read_data(numMessagesMax);
+  for (size_t i = 0; i < numMessagesMax; i++) {
     data[i] = i & 0xFF;
   }
-  ASSERT_TRUE(fmsgq->write(data, numMessages));
-  ASSERT_TRUE(fmsgq->read(read_data, numMessages));
-  ASSERT_TRUE(fmsgq->write(data, queue_size));
-  ASSERT_TRUE(fmsgq->read(read_data, queue_size));
-  ASSERT_TRUE(memcmp(read_data, data, queue_size) == 0);
-  delete[] data;
-  delete[] read_data;
+  ASSERT_TRUE(fmsgq->write(&data[0], numMessages));
+  ASSERT_TRUE(fmsgq->read(&read_data[0], numMessages));
+  ASSERT_TRUE(fmsgq->write(&data[0], numMessagesMax));
+  ASSERT_TRUE(fmsgq->read(&read_data[0], numMessagesMax));
+  ASSERT_TRUE(data == read_data);
 }
