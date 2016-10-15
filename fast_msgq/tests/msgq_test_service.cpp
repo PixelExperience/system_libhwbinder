@@ -76,28 +76,21 @@ class TestMsgQ : public ITestMsgQ {
     }
   }
 
-  // TODO:: Change callback argument to bool.
-  virtual Return<int32_t> requestWrite(int count) {
+  virtual Return<bool> requestWrite(int count) {
     uint16_t* data = new uint16_t[count];
     for (int i = 0; i < count; i++) {
       data[i] = i;
     }
-    if (fmsg_queue->write(data, count)) {
-      delete[] data;
-      return count;
-    }
+    bool result = fmsg_queue->write(data, count);
     delete[] data;
-    return 0;
+    return result;
   }
-  // TODO:: Change callback argument to bool.
-  virtual Return<int32_t> requestRead(int count) {
+
+  virtual Return<bool> requestRead(int count) {
     uint16_t* data = new uint16_t[count];
-    if (fmsg_queue->read(data, count) && verifyData(data, count)) {
-      delete[] data;
-      return count;
-    }
+    bool result = fmsg_queue->read(data, count) && verifyData(data, count);
     delete[] data;
-    return 0;
+    return result;
   }
 
   virtual Return<void> configureFmqSyncReadWrite(
@@ -113,7 +106,7 @@ class TestMsgQ : public ITestMsgQ {
         native_handle_create(1 /* numFds */, 0 /* numInts */);
     if (!mq_handle) {
       ALOGE("Unable to create native_handle_t");
-      callback(-1 /* ret */, MQDescriptorSync
+      callback(false /* ret */, MQDescriptorSync
                (std::vector<android::hardware::GrantorDescriptor>(),
                        nullptr /* nhandle */, 0 /* size */));
       return Void();
@@ -128,11 +121,11 @@ class TestMsgQ : public ITestMsgQ {
     }
     fmsg_queue = new MessageQueue<uint16_t, kSynchronizedReadWrite>(mydesc);
     if (fmsg_queue == nullptr) {
-      callback(-1 /* ret */, MQDescriptorSync(
+      callback(false /* ret */, MQDescriptorSync(
                    std::vector<android::hardware::GrantorDescriptor>(),
                    nullptr /* nhandle */, 0 /* size */));
     } else {
-      callback(0 /* ret */, mydesc);
+      callback(true /* ret */, mydesc);
     }
     return Void();
   }
