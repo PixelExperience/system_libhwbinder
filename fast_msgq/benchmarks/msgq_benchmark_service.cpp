@@ -161,29 +161,24 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
                 time_data_, numIter).detach();
     return Void();
   }
-  // TODO:: Change callback argument to bool.
-  virtual Return<int32_t> requestWrite(int count) {
+
+  virtual Return<bool> requestWrite(int count) {
     uint8_t* data = new uint8_t[count];
     for (int i = 0; i < count; i++) {
       data[i] = i;
     }
-    if (fmsg_queue_outbox_->write(data, count)) {
-      delete[] data;
-      return count;
-    }
+    bool result = fmsg_queue_outbox_->write(data, count);
     delete[] data;
-    return 0;
+    return result;
   }
-  // TODO:: Change callback argument to bool.
-  virtual Return<int32_t> requestRead(int count) {
+
+  virtual Return<bool> requestRead(int count) {
     uint8_t* data = new uint8_t[count];
-    if (fmsg_queue_inbox_->read(data, count)) {
-      delete[] data;
-      return count;
-    }
+    bool result = fmsg_queue_inbox_->read(data, count);
     delete[] data;
-    return 0;
+    return result;
   }
+
   /*
    * This method is used by the client to send the server timestamps to
    * calculate the server to client write to read delay.
@@ -222,7 +217,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
                                                       0 /* numInts */);
     if (!mq_handle) {
           ALOGE("Unable to create native_handle_t");
-          callback(-1 /* ret */, android::hardware::MQDescriptorSync(
+          callback(false /* ret */, android::hardware::MQDescriptorSync(
                        std::vector<android::hardware::GrantorDescriptor>(),
                        nullptr /* nhandle */, 0 /* size */));
           return Void();
@@ -236,11 +231,11 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     fmsg_queue_inbox_ = new android::hardware::MessageQueue<uint8_t,
                       kSynchronizedReadWrite>(desc);
     if (fmsg_queue_inbox_ == nullptr) {
-      callback(-1 /* ret */, android::hardware::MQDescriptorSync(
+      callback(false /* ret */, android::hardware::MQDescriptorSync(
                        std::vector<android::hardware::GrantorDescriptor>(),
                        nullptr /* nhandle */, 0 /* size */));
     } else {
-      callback(0 /* ret */, desc);
+      callback(true /* ret */, desc);
     }
     return Void();
   }
@@ -256,7 +251,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     native_handle_t* mq_handle = native_handle_create(1, 0);
     if (!mq_handle) {
           ALOGE("Unable to create native_handle_t");
-          callback(-1 /* ret */, android::hardware::MQDescriptorSync(
+          callback(false /* ret */, android::hardware::MQDescriptorSync(
                        std::vector<android::hardware::GrantorDescriptor>(),
                        nullptr /* nhandle */, 0 /* size */));
           return Void();
@@ -270,11 +265,11 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     fmsg_queue_outbox_ = new android::hardware::MessageQueue<uint8_t,
                        kSynchronizedReadWrite>(desc);
     if (fmsg_queue_outbox_ == nullptr) {
-      callback(-1 /* ret */, android::hardware::MQDescriptorSync(
+      callback(false /* ret */, android::hardware::MQDescriptorSync(
                        std::vector<android::hardware::GrantorDescriptor>(),
                        nullptr /* nhandle */, 0 /* size */));
     } else {
-      callback(0 /* ret */, desc);
+      callback(true /* ret */, desc);
     }
     return Void();
   }

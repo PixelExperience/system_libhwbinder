@@ -69,36 +69,32 @@ const char kServiceName[] =
 class MQTestClient : public ::testing::Test {
  protected:
   virtual void TearDown() {
-    if (fmsg_queue_inbox_) delete fmsg_queue_inbox_;
-    if (fmsg_queue_outbox_) delete fmsg_queue_outbox_;
+    delete fmsg_queue_inbox_;
+    delete fmsg_queue_outbox_;
   }
 
   virtual void SetUp() {
     service = IBenchmarkMsgQ::getService(kServiceName);
-    if (service == nullptr) return;
+    ASSERT_NE(service, nullptr);
     /*
      * Request service to configure the client inbox queue.
      */
-    service->configureClientInboxSyncReadWrite
-        ([this](int32_t bad, const MQDescriptorSync& in) {
-          if (!bad) {
-            fmsg_queue_inbox_ = new MessageQueue<uint8_t,
-                              kSynchronizedReadWrite>(in);
-          }
-        });
+    service->configureClientInboxSyncReadWrite([this](
+        bool ret, const MQDescriptorSync& in) {
+      ASSERT_TRUE(ret);
+      fmsg_queue_inbox_ = new MessageQueue<uint8_t, kSynchronizedReadWrite>(in);
+    });
 
     ASSERT_TRUE(fmsg_queue_inbox_ != nullptr);
     ASSERT_TRUE(fmsg_queue_inbox_->isValid());
     /*
      * Reqeust service to configure the client outbox queue.
      */
-    service->configureClientOutboxSyncReadWrite(
-        [this](int32_t bad, const MQDescriptorSync& out) {
-          if (!bad) {
-            fmsg_queue_outbox_ = new MessageQueue<uint8_t,
-                               kSynchronizedReadWrite>(out);
-          }
-        });
+    service->configureClientOutboxSyncReadWrite([this](
+        bool ret, const MQDescriptorSync& out) {
+     ASSERT_TRUE(ret);
+      fmsg_queue_outbox_ = new MessageQueue<uint8_t, kSynchronizedReadWrite>(out);
+    });
 
     ASSERT_TRUE(fmsg_queue_outbox_ != nullptr);
     ASSERT_TRUE(fmsg_queue_outbox_->isValid());
@@ -158,8 +154,8 @@ TEST_F(MQTestClient, BenchMarkMeasureRead64Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize64;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->requestWrite(kQueueSize);
-    ASSERT_TRUE(write_count == kQueueSize);
+    bool ret = service->requestWrite(kQueueSize);
+    ASSERT_TRUE(ret);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
     /*
@@ -189,8 +185,8 @@ TEST_F(MQTestClient, BenchMarkMeasureRead128Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize128;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->requestWrite(kQueueSize);
-    ASSERT_TRUE(write_count == kQueueSize);
+    bool ret = service->requestWrite(kQueueSize);
+    ASSERT_TRUE(ret);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
 
@@ -220,8 +216,8 @@ TEST_F(MQTestClient, BenchMarkMeasureRead256Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize256;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->requestWrite(kQueueSize);
-    ASSERT_TRUE(write_count == kQueueSize);
+    bool ret = service->requestWrite(kQueueSize);
+    ASSERT_TRUE(ret);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
     /*
@@ -250,8 +246,8 @@ TEST_F(MQTestClient, BenchMarkMeasureRead512Bytes) {
   uint32_t num_loops = kQueueSize / kPacketSize512;
   uint64_t accumulated_time = 0;
   for (uint32_t i = 0; i < kNumIterations; i++) {
-    int32_t write_count = service->requestWrite(kQueueSize);
-    ASSERT_TRUE(write_count == kQueueSize);
+    bool ret = service->requestWrite(kQueueSize);
+    ASSERT_TRUE(ret);
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start =
         std::chrono::high_resolution_clock::now();
     /*
@@ -293,8 +289,8 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite64Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->requestRead(kQueueSize);
-    ASSERT_TRUE(read_count == kQueueSize);
+    bool ret = service->requestRead(kQueueSize);
+    ASSERT_TRUE(ret);
   }
   accumulated_time /= (num_loops * kNumIterations);
   cout << "Average time to write " << kPacketSize64
@@ -323,8 +319,8 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite128Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->requestRead(kQueueSize);
-    ASSERT_TRUE(read_count == kQueueSize);
+    bool ret = service->requestRead(kQueueSize);
+    ASSERT_TRUE(ret);
   }
   accumulated_time /= (num_loops * kNumIterations);
   cout << "Average time to write " << kPacketSize128
@@ -353,8 +349,8 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite256Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->requestRead(kQueueSize);
-    ASSERT_TRUE(read_count == kQueueSize);
+    bool ret = service->requestRead(kQueueSize);
+    ASSERT_TRUE(ret);
   }
   accumulated_time /= (num_loops * kNumIterations);
   cout << "Average time to write " << kPacketSize256
@@ -385,8 +381,8 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite512Bytes) {
         std::chrono::high_resolution_clock::now();
     accumulated_time += (time_end - time_start).count();
 
-    int32_t read_count = service->requestRead(kQueueSize);
-    ASSERT_TRUE(read_count == kQueueSize);
+    bool ret = service->requestRead(kQueueSize);
+    ASSERT_TRUE(ret);
   }
   accumulated_time /= (num_loops * kNumIterations);
   cout << "Average time to write " << kPacketSize512
