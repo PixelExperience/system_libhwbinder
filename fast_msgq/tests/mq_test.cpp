@@ -15,7 +15,6 @@
  */
 
 #include <asm-generic/mman.h>
-#include <cutils/ashmem.h>
 #include <gtest/gtest.h>
 #include <cstdlib>
 #include <sstream>
@@ -30,40 +29,8 @@ class MQTests : public ::testing::Test {
 
   virtual void SetUp() {
     static constexpr size_t kNumElementsInQueue = 2048;
-    static constexpr size_t kQueueSizeBytes =
-        kNumElementsInQueue * sizeof(uint8_t);
-    /*
-     * The FMQ needs to allocate memory for the ringbuffer as well as for the
-     * read and write pointer counters. Also, Ashmem memory region size needs to
-     * be specified in page-aligned bytes.
-     */
-    static constexpr size_t kAshmemSizePageAligned =
-        (kQueueSizeBytes + 2 * sizeof(android::hardware::RingBufferPosition) +
-         PAGE_SIZE - 1) &
-        ~(PAGE_SIZE - 1);
-    /*
-     * Create an ashmem region to map the memory for the ringbuffer,
-     * read counter and write counter.
-     */
-    int ashmemFd = ashmem_create_region("MessageQueue", kAshmemSizePageAligned);
-    ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
-    ASSERT_TRUE(ashmemFd >= 0);
-    native_handle_t* mq_handle = native_handle_create(1 /* numFds */,
-                                                      0 /* numInts */);
-    ASSERT_TRUE(mq_handle != nullptr);
-    /*
-     * The native handle will contain the fds to be
-     * mapped.
-     */
-    mq_handle->data[0] = ashmemFd;
-    /*
-     * The FMQ described by this descriptor can hold a maximum of
-     * kQueueSizeBytes bytes or kNumElementsInQueue items of type uint8_t.
-     */
-    android::hardware::MQDescriptorSync mydesc(kQueueSizeBytes, mq_handle,
-                                               sizeof(uint8_t));
     fmsgq = new android::hardware::MessageQueue<uint8_t,
-          android::hardware::kSynchronizedReadWrite>(mydesc);
+          android::hardware::kSynchronizedReadWrite>(kNumElementsInQueue);
     ASSERT_TRUE(fmsgq != nullptr);
     ASSERT_TRUE(fmsgq->isValid());
     numMessagesMax = fmsgq->getQuantumCount();

@@ -16,7 +16,6 @@
 
 #include <../common/MessageQueue.h>
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
-#include <cutils/ashmem.h>
 #include <hidl/IServiceManager.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
@@ -93,52 +92,14 @@ class TestMsgQ : public ITestMsgQ {
   virtual Return<void> configureFmqSyncReadWrite(
       ITestMsgQ::configureFmqSyncReadWrite_cb callback) {
     static constexpr size_t kNumElementsInQueue = 1024;
-    static constexpr size_t kQueueSizeBytes =
-        kNumElementsInQueue * sizeof(uint16_t);
-    /*
-     * The FMQ needs to allocate memory for the ringbuffer as well as for the
-     * read and write pointer counters. Also, Ashmem memory region size needs to
-     * be specified in page-aligned bytes.
-     */
-    static constexpr size_t kAshmemSizePageAligned =
-        (kQueueSizeBytes + 2 * sizeof(android::hardware::RingBufferPosition) +
-         PAGE_SIZE - 1) &
-        ~(PAGE_SIZE - 1);
-    /*
-     * Create an ashmem region to map the memory for the ringbuffer,
-     * read counter and write counter.
-     */
-    int ashmemFd = ashmem_create_region("MessageQueue", kAshmemSizePageAligned);
-    ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
-    /*
-     * The native handle will contain the fds to be mapped.
-     */
-    native_handle_t* mq_handle =
-        native_handle_create(1 /* numFds */, 0 /* numInts */);
-    if (!mq_handle) {
-      ALOGE("Unable to create native_handle_t");
-      callback(false /* ret */, MQDescriptorSync
-               (std::vector<android::hardware::GrantorDescriptor>(),
-                       nullptr /* nhandle */, 0 /* size */));
-      return Void();
-    }
-
-    mq_handle->data[0] = ashmemFd;
-    /*
-     * The FMQ described by this descriptor can hold a maximum of
-     * kQueueSizeBytes bytes or kNumElementsInQueue items of type uint16_t.
-     */
-    MQDescriptorSync mydesc(kQueueSizeBytes, mq_handle, sizeof(uint16_t));
-    if (fmsg_queue) {
-      delete fmsg_queue;
-    }
-    fmsg_queue = new MessageQueue<uint16_t, kSynchronizedReadWrite>(mydesc);
-    if (fmsg_queue == nullptr) {
+    fmsg_queue =
+        new MessageQueue<uint16_t, kSynchronizedReadWrite>(kNumElementsInQueue);
+    if ((fmsg_queue == nullptr) || (fmsg_queue->isValid() == false)) {
       callback(false /* ret */, MQDescriptorSync(
                    std::vector<android::hardware::GrantorDescriptor>(),
                    nullptr /* nhandle */, 0 /* size */));
     } else {
-      callback(true /* ret */, mydesc);
+      callback(true /* ret */, *fmsg_queue->getDesc());
     }
     return Void();
   }
