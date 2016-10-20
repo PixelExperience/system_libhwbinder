@@ -2508,9 +2508,10 @@ size_t Parcel::ipcObjectsCount() const
     return mObjectsSize;
 }
 
+#define BUFFER_ALIGNMENT_BYTES 8
 size_t Parcel::ipcBufferSize() const
 {
-    size_t dataSize = 0;
+    size_t totalBuffersSize = 0;
     // Add size for BINDER_TYPE_PTR
     size_t i = mObjectsSize;
     while (i > 0) {
@@ -2518,10 +2519,18 @@ size_t Parcel::ipcBufferSize() const
         const binder_buffer_object* buffer
             = reinterpret_cast<binder_buffer_object*>(mData+mObjects[i]);
         if (isBuffer(*buffer)) {
-            dataSize += buffer->length;
+            /* The binder kernel driver requires each buffer to be 8-byte
+             * aligned */
+            size_t alignedSize = (buffer->length + (BUFFER_ALIGNMENT_BYTES - 1))
+                    & ~(BUFFER_ALIGNMENT_BYTES - 1);
+            if (alignedSize > SIZE_MAX - totalBuffersSize) {
+                ALOGE("ipcBuffersSize(): invalid buffer sizes.");
+                return 0;
+            }
+            totalBuffersSize += alignedSize;
         }
     }
-    return dataSize;
+    return totalBuffersSize;
 }
 
 void Parcel::ipcSetDataReference(const uint8_t* data, size_t dataSize,
