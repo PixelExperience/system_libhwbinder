@@ -27,19 +27,85 @@ namespace hardware {
 
 template <typename T, MQFlavor flavor>
 struct MessageQueue {
+  /*
+   * @param Desc The MQDescritptorSync object describes the FMQ of flavor
+   * kSynchronizedReadWrite.
+   */
   MessageQueue(const MQDescriptorSync& Desc);
+
   ~MessageQueue();
 
+  /*
+   * @return Number of items of type T that can be written into the FMQ
+   * without a read.
+   */
   size_t availableToWrite() const;
+
+  /*
+   * @return Number of items of type T that are waiting to be read from the
+   * FMQ.
+   */
   size_t availableToRead() const;
+
+  /*
+   * Returns the size of type T.
+   *
+   * @param Size of T.
+   */
   size_t getQuantumSize() const;
+
+  /*
+   * Returns the size of the FMQ in terms of the size of type T.
+   *
+   * @return Number of items of type T that will fit in the FMQ.
+   */
   size_t getQuantumCount() const;
+
+  /*
+   * @return Whether the FMQ is configured correctly.
+   */
   bool isValid() const;
 
+  /*
+   * @param data Pointer to the object of type T to be written into the FMQ.
+   *
+   * @return Whether the write was successful.
+   */
   bool write(const T* data);
+
+  /*
+   * @param data Pointer to the memory where the object read from the FMQ is
+   * copied to.
+   *
+   * @return Whether the read was successful.
+   */
   bool read(T* data);
+
+  /*
+   * Write some data into the FMQ.
+   *
+   * @param data Pointer to the array of items of type T.
+   * @param count Number of items in array.
+   *
+   * @return Whether the write was successful.
+   */
   bool write(const T* data, size_t count);
+
+  /*
+   * Read some data from the FMQ.
+   *
+   * @param data Pointer to the array to which read data is to be written.
+   * @param count Number of items to be read.
+   *
+   * @return Whether the read was successful.
+   */
   bool read(T* data, size_t count);
+
+  /*
+   * Get a pointer to the MQDescriptor object that describes this FMQ.
+   *
+   * @return Pointer to the MQDescriptor associated with the FMQ.
+   */
   const MQDescriptor<flavor>* getDesc() const { return &mDesc; }
 
  private:
@@ -59,6 +125,9 @@ struct MessageQueue {
   size_t readBytes(uint8_t* data, size_t size);
   transaction beginRead(size_t nBytesDesired) const;
   void commitRead(size_t nBytesRead);
+
+  size_t availableToWriteBytes() const;
+  size_t availableToReadBytes() const;
 
   MessageQueue(const MessageQueue& other) = delete;
   MessageQueue& operator=(const MessageQueue& other) = delete;
@@ -95,8 +164,8 @@ MessageQueue<T, flavor>::MessageQueue(const MQDescriptorSync& Desc)
       (mapGrantorDescr(MQDescriptor<flavor>::WRITEPTRPOS));
   CHECK(mWritePtr != nullptr);
 
-  mReadPtr->store(0, std::memory_order_acquire);
-  mWritePtr->store(0, std::memory_order_acquire);
+  mReadPtr->store(0, std::memory_order_release);
+  mWritePtr->store(0, std::memory_order_release);
 
   mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr
                                      (MQDescriptor<flavor>::DATAPTRPOS));
@@ -121,7 +190,7 @@ bool MessageQueue<T, flavor>::read(T* data) {
 }
 template <typename T, MQFlavor flavor>
 bool MessageQueue<T, flavor>::write(const T* data, size_t count) {
-  if (availableToWrite() < sizeof(T) * count) {
+  if (availableToWriteBytes() < sizeof(T) * count) {
     return false;
   }
 
@@ -131,7 +200,7 @@ bool MessageQueue<T, flavor>::write(const T* data, size_t count) {
 
 template <typename T, MQFlavor flavor>
 bool MessageQueue<T, flavor>::read(T* data, size_t count) {
-  if (availableToRead() < sizeof(T) * count) {
+  if (availableToReadBytes() < sizeof(T) * count) {
     return false;
   }
   return readBytes(reinterpret_cast<uint8_t*>(data), sizeof(T) * count) ==
@@ -139,8 +208,18 @@ bool MessageQueue<T, flavor>::read(T* data, size_t count) {
 }
 
 template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::availableToWriteBytes() const {
+  return mDesc.getSize() - availableToReadBytes();
+}
+
+template <typename T, MQFlavor flavor>
 size_t MessageQueue<T, flavor>::availableToWrite() const {
-  return mDesc.getSize() - availableToRead();
+  return availableToWriteBytes()/sizeof(T);
+}
+
+template <typename T, MQFlavor flavor>
+size_t MessageQueue<T, flavor>::availableToRead() const {
+  return availableToReadBytes()/sizeof(T);
 }
 
 template <typename T, MQFlavor flavor>
@@ -162,7 +241,6 @@ template <typename T, MQFlavor flavor>
 typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginWrite(
     size_t nBytesDesired) const {
   transaction result;
-  auto readPtr = mReadPtr->load(std::memory_order_acquire);
   auto writePtr = mWritePtr->load(std::memory_order_relaxed);
   size_t writeOffset = writePtr % mDesc.getSize();
   size_t contiguous = mDesc.getSize() - writeOffset;
@@ -185,7 +263,7 @@ void MessageQueue<T, flavor>::commitWrite(size_t nBytesWritten) {
 }
 
 template <typename T, MQFlavor flavor>
-size_t MessageQueue<T, flavor>::availableToRead() const {
+size_t MessageQueue<T, flavor>::availableToReadBytes() const {
   /*
    * Doing relaxed loads here because these accesses don't carry dependencies.
    * Dependent accesses won't happen until after a call to beginWrite or
@@ -215,9 +293,7 @@ template <typename T, MQFlavor flavor>
 typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginRead(
     size_t nBytesDesired) const {
   transaction result;
-  auto writePtr = mWritePtr->load(std::memory_order_acquire);
   auto readPtr = mReadPtr->load(std::memory_order_relaxed);
-
   size_t readOffset = readPtr % mDesc.getSize();
   size_t contiguous = mDesc.getSize() - readOffset;
 
@@ -278,7 +354,6 @@ void* MessageQueue<T, flavor>::mapGrantorDescr(uint32_t grantor_idx) {
 template <typename T, MQFlavor flavor>
 void MessageQueue<T, flavor>::unmapGrantorDescr(void* address,
                                                 uint32_t grantor_idx) {
-  const native_handle_t* handle = mDesc.getNativeHandle()->handle();
   auto mGrantors = mDesc.getGrantors();
   int mapOffset = (mGrantors[grantor_idx].offset / PAGE_SIZE) * PAGE_SIZE;
   int mapLength =
