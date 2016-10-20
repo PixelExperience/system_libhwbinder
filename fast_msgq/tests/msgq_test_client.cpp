@@ -35,8 +35,6 @@ using android::hardware::kSynchronizedReadWrite;
 using android::hardware::MQDescriptorSync;
 using android::hardware::MessageQueue;
 
-static int numMessagesMax;
-
 namespace android {
 namespace hardware {
 namespace tests {
@@ -71,13 +69,14 @@ class MQTestClient : public ::testing::Test {
   }
   sp<ITestMsgQ> service;
   MessageQueue<uint16_t, kSynchronizedReadWrite>* fmsg_queue = nullptr;
+  size_t numMessagesMax = 0;
 };
 
 /*
  * Utility function to verify data read from the fast message queue.
  */
-bool verifyData(uint16_t* data, int count) {
-  for (int i = 0; i < count; i++) {
+bool verifyData(uint16_t* data, size_t count) {
+  for (size_t i = 0; i < count; i++) {
     if (data[i] != i) return false;
   }
   return true;
@@ -87,7 +86,7 @@ bool verifyData(uint16_t* data, int count) {
  * to the FMQ. Read and verify data.
  */
 TEST_F(MQTestClient, SmallInputReaderTest1) {
-  const int data_len = 16;
+  const size_t data_len = 16;
   ASSERT_TRUE(data_len <= numMessagesMax);
   bool ret = service->requestWrite(data_len);
   ASSERT_TRUE(ret);
@@ -101,11 +100,11 @@ TEST_F(MQTestClient, SmallInputReaderTest1) {
  * service to read and verify that the write was succesful.
  */
 TEST_F(MQTestClient, SmallInputWriterTest1) {
-  const int data_len = 16;
+  const size_t data_len = 16;
   ASSERT_TRUE(data_len <= numMessagesMax);
   size_t original_count = fmsg_queue->availableToWrite();
   uint16_t data[data_len];
-  for (int i = 0; i < data_len; i++) {
+  for (size_t i = 0; i < data_len; i++) {
     data[i] = i;
   }
   ASSERT_TRUE(fmsg_queue->write(data, data_len));
@@ -120,7 +119,7 @@ TEST_F(MQTestClient, SmallInputWriterTest1) {
  */
 TEST_F(MQTestClient, ReadWhenEmpty) {
   ASSERT_TRUE(fmsg_queue->availableToRead() == 0);
-  const int numMessages = 2;
+  const size_t numMessages = 2;
   ASSERT_TRUE(numMessages <= numMessagesMax);
   uint16_t read_data[numMessages];
   ASSERT_FALSE(fmsg_queue->read(read_data, numMessages));
@@ -136,16 +135,15 @@ TEST_F(MQTestClient, ReadWhenEmpty) {
  */
 
 TEST_F(MQTestClient, WriteWhenFull) {
-  uint16_t* data = new uint16_t[numMessagesMax];
-  for (int i = 0; i < numMessagesMax; i++) {
+  std::vector<uint16_t> data(numMessagesMax);
+  for (size_t i = 0; i < numMessagesMax; i++) {
     data[i] = i;
   }
-  ASSERT_TRUE(fmsg_queue->write(data, numMessagesMax));
+  ASSERT_TRUE(fmsg_queue->write(&data[0], numMessagesMax));
   ASSERT_TRUE(fmsg_queue->availableToWrite() == 0);
-  ASSERT_FALSE(fmsg_queue->write(data, 1));
+  ASSERT_FALSE(fmsg_queue->write(&data[0], 1));
   bool ret = service->requestRead(numMessagesMax);
   ASSERT_TRUE(ret);
-  delete[] data;
 }
 
 /*
@@ -156,10 +154,9 @@ TEST_F(MQTestClient, WriteWhenFull) {
 TEST_F(MQTestClient, LargeInputTest1) {
   bool ret = service->requestWrite(numMessagesMax);
   ASSERT_TRUE(ret);
-  uint16_t* read_data = new uint16_t[numMessagesMax]();
-  ASSERT_TRUE(fmsg_queue->read(read_data, numMessagesMax));
-  ASSERT_TRUE(verifyData(read_data, numMessagesMax));
-  delete[] read_data;
+  std::vector<uint16_t> read_data(numMessagesMax);
+  ASSERT_TRUE(fmsg_queue->read(&read_data[0], numMessagesMax));
+  ASSERT_TRUE(verifyData(&read_data[0], numMessagesMax));
 }
 
 /*
@@ -169,7 +166,7 @@ TEST_F(MQTestClient, LargeInputTest1) {
  */
 TEST_F(MQTestClient, LargeInputTest2) {
   ASSERT_TRUE(fmsg_queue->availableToRead() == 0);
-  const int numMessages = 2048;
+  const size_t numMessages = 2048;
   ASSERT_TRUE(numMessages > numMessagesMax);
   bool ret = service->requestWrite(numMessages);
   ASSERT_FALSE(ret);
@@ -186,18 +183,17 @@ TEST_F(MQTestClient, LargeInputTest2) {
  * Request service to read. Verify read count.
  */
 TEST_F(MQTestClient, LargeInputTest3) {
-  uint16_t* data = new uint16_t[numMessagesMax];
-  for (int i = 0; i < numMessagesMax; i++) {
+  std::vector<uint16_t> data(numMessagesMax);
+  for (size_t i = 0; i < numMessagesMax; i++) {
     data[i] = i;
   }
 
-  ASSERT_TRUE(fmsg_queue->write(data, numMessagesMax));
+  ASSERT_TRUE(fmsg_queue->write(&data[0], numMessagesMax));
   ASSERT_TRUE(fmsg_queue->availableToWrite() == 0);
-  ASSERT_FALSE(fmsg_queue->write(data, 1));
+  ASSERT_FALSE(fmsg_queue->write(&data[0], 1));
 
   bool ret = service->requestRead(numMessagesMax);
   ASSERT_TRUE(ret);
-  delete[] data;
 }
 
 /*
@@ -205,17 +201,17 @@ TEST_F(MQTestClient, LargeInputTest3) {
  * Do multiple reads to empty FMQ and verify data.
  */
 TEST_F(MQTestClient, MultipleRead) {
-  const int chunkSize = 100;
-  const int chunkNum = 5;
-  const int numMessages = chunkSize * chunkNum;
+  const size_t chunkSize = 100;
+  const size_t chunkNum = 5;
+  const size_t numMessages = chunkSize * chunkNum;
   ASSERT_TRUE(numMessages <= numMessagesMax);
-  int availableToRead = fmsg_queue->availableToRead();
-  int expected_count = 0;
+  size_t availableToRead = fmsg_queue->availableToRead();
+  size_t expected_count = 0;
   ASSERT_EQ(availableToRead, expected_count);
   bool ret = service->requestWrite(numMessages);
   ASSERT_TRUE(ret);
   uint16_t read_data[numMessages] = {};
-  for (int i = 0; i < chunkNum; i++) {
+  for (size_t i = 0; i < chunkNum; i++) {
     ASSERT_TRUE(fmsg_queue->read(read_data + i * chunkSize, chunkSize));
   }
   ASSERT_TRUE(verifyData(read_data, numMessages));
@@ -226,15 +222,15 @@ TEST_F(MQTestClient, MultipleRead) {
  * Request service to read data, verify that it was successful.
  */
 TEST_F(MQTestClient, MultipleWrite) {
-  const int chunkSize = 100;
-  const int chunkNum = 5;
-  const int numMessages = chunkSize * chunkNum;
+  const size_t chunkSize = 100;
+  const size_t chunkNum = 5;
+  const size_t numMessages = chunkSize * chunkNum;
   ASSERT_TRUE(numMessages <= numMessagesMax);
   uint16_t data[numMessages];
-  for (int i = 0; i < numMessages; i++) {
+  for (size_t i = 0; i < numMessages; i++) {
     data[i] = i;
   }
-  for (int i = 0; i < chunkNum; i++) {
+  for (size_t i = 0; i < chunkNum; i++) {
     ASSERT_TRUE(fmsg_queue->write(data + i * chunkSize, chunkSize));
   }
   bool ret = service->requestRead(numMessages);
@@ -248,16 +244,15 @@ TEST_F(MQTestClient, MultipleWrite) {
  * wrap around. Request service to read and verify the data.
  */
 TEST_F(MQTestClient, ReadWriteWrapAround) {
-  int numMessages = numMessagesMax / 2;
-  uint16_t* data = new uint16_t[numMessagesMax];
-  for (int i = 0; i < numMessagesMax; i++) {
+  size_t numMessages = numMessagesMax / 2;
+  std::vector<uint16_t> data(numMessagesMax);
+  for (size_t i = 0; i < numMessagesMax; i++) {
     data[i] = i;
   }
-  ASSERT_TRUE(fmsg_queue->write(data, numMessages));
+  ASSERT_TRUE(fmsg_queue->write(&data[0], numMessages));
   bool ret = service->requestRead(numMessages);
   ASSERT_TRUE(ret);
-  ASSERT_TRUE(fmsg_queue->write(data, numMessagesMax));
+  ASSERT_TRUE(fmsg_queue->write(&data[0], numMessagesMax));
   ret = service->requestRead(numMessagesMax);
   ASSERT_TRUE(ret);
-  delete[] data;
 }

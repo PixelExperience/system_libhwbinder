@@ -60,11 +60,6 @@ using android::hardware::MQFlavor;
 using android::hardware::benchmarks::msgq::V1_0::IBenchmarkMsgQ;
 
 /*
- * All benchmark test will per performed on a FMQ of size kQueueSize
- */
-const size_t kQueueSize = 16 * 1024;
-
-/*
  * The various packet sizes used are as follows.
  */
 enum PacketSizes {
@@ -74,12 +69,6 @@ enum PacketSizes {
   kPacketSize512 = 512,
   kPacketSize1024 = 1024
 };
-
-/*
- * This is the size of ashmem region that will be created for the FMQ.
- */
-
-const size_t kAshmemSize = 20 * 1024;
 
 const char kServiceName[] =
     "android.hardware.benchmarks.msgq@1.0::IBenchmarkMsgQ";
@@ -209,23 +198,43 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
    */
   virtual Return<void> configureClientOutboxSyncReadWrite(
       IBenchmarkMsgQ::configureClientOutboxSyncReadWrite_cb callback) {
-    int ashmemFd =
-        ashmem_create_region("MessageQueueClientOutbox", kAshmemSize);
+    static constexpr size_t kNumElementsInQueue = 16 * 1024;
+    static constexpr size_t kQueueSizeBytes =
+        kNumElementsInQueue * sizeof(uint8_t);
+    /*
+     * The FMQ needs to allocate memory for the ringbuffer as well as for the
+     * read and write pointer counters. Also, Ashmem memory region size needs to
+     * be specified in page-aligned bytes.
+     */
+    static constexpr size_t kAshmemSizePageAligned =
+        (kQueueSizeBytes + 2 * sizeof(android::hardware::RingBufferPosition) +
+         PAGE_SIZE - 1) &
+        ~(PAGE_SIZE - 1);
+    /*
+     * Create an ashmem region to map the memory for the ringbuffer,
+     * read counter and write counter.
+     */
+    int ashmemFd = ashmem_create_region("MessageQueue", kAshmemSizePageAligned);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
     if (fmsg_queue_inbox_) delete fmsg_queue_inbox_;
     native_handle_t* mq_handle = native_handle_create(1 /* numFds */,
                                                       0 /* numInts */);
     if (!mq_handle) {
-          ALOGE("Unable to create native_handle_t");
-          callback(false /* ret */, android::hardware::MQDescriptorSync(
-                       std::vector<android::hardware::GrantorDescriptor>(),
-                       nullptr /* nhandle */, 0 /* size */));
-          return Void();
+      ALOGE("Unable to create native_handle_t");
+      callback(false /* ret */,
+               android::hardware::MQDescriptorSync(
+                   std::vector<android::hardware::GrantorDescriptor>(),
+                   nullptr /* nhandle */, 0 /* size */));
+      return Void();
     }
 
     mq_handle->data[0] = ashmemFd;
 
-    android::hardware::MQDescriptorSync desc(kQueueSize, mq_handle,
+    /*
+     * The FMQ described by this descriptor can hold a maximum of
+     * kQueueSizeBytes bytes or kNumElementsInQueue items of type uint8_t.
+     */
+    android::hardware::MQDescriptorSync desc(kQueueSizeBytes, mq_handle,
                                                             sizeof(uint8_t));
 
     fmsg_queue_inbox_ = new android::hardware::MessageQueue<uint8_t,
@@ -239,12 +248,29 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     }
     return Void();
   }
+
   /*
    * This method requests the service to configure the client's inbox queue.
    */
   virtual Return<void> configureClientInboxSyncReadWrite(
       IBenchmarkMsgQ::configureClientInboxSyncReadWrite_cb callback) {
-    int ashmemFd = ashmem_create_region("MessageQueueClientInbox", kAshmemSize);
+    static constexpr size_t kNumElementsInQueue = 16 * 1024;
+    static constexpr size_t kQueueSizeBytes =
+        kNumElementsInQueue * sizeof(uint8_t);
+    /*
+     * The FMQ needs to allocate memory for the ringbuffer as well as for the
+     * read and write pointer counters. Also, Ashmem memory region size needs to
+     * be specified in page-aligned bytes.
+     */
+    static constexpr size_t kAshmemSizePageAligned =
+        (kQueueSizeBytes + 2 * sizeof(android::hardware::RingBufferPosition) +
+         PAGE_SIZE - 1) &
+        ~(PAGE_SIZE - 1);
+    /*
+     * Create an ashmem region to map the memory for the ringbuffer,
+     * read counter and write counter.
+     */
+    int ashmemFd = ashmem_create_region("MessageQueue", kAshmemSizePageAligned);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
 
     if (fmsg_queue_outbox_) delete fmsg_queue_outbox_;
@@ -258,9 +284,12 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
     }
 
     mq_handle->data[0] = ashmemFd;
-
-    android::hardware::MQDescriptorSync desc(kQueueSize, mq_handle,
-                                                            sizeof(uint8_t));
+    /*
+     * The FMQ described by this descriptor can hold a maximum of
+     * kQueueSizeBytes bytes or kNumElementsInQueue items of type uint8_t.
+     */
+    android::hardware::MQDescriptorSync desc(kQueueSizeBytes, mq_handle,
+                                             sizeof(uint8_t));
 
     fmsg_queue_outbox_ = new android::hardware::MessageQueue<uint8_t,
                        kSynchronizedReadWrite>(desc);
