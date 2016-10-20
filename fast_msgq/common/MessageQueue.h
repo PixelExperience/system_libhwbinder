@@ -18,6 +18,7 @@
 #define HIDL_MQ_H
 
 #include <android-base/logging.h>
+#include <cutils/ashmem.h>
 #include <hidl/MQDescriptor.h>
 #include <sys/mman.h>
 #include <atomic>
@@ -34,6 +35,14 @@ struct MessageQueue {
   MessageQueue(const MQDescriptorSync& Desc);
 
   ~MessageQueue();
+
+  /*
+   * This constructor will use Ashmem shared memory to create an FMQ
+   * that can contain a maximum of numElementsInQueue elements of type T.
+   *
+   * @param numElementsInQueue Capacity of the MessageQueue in terms of T.
+   */
+  MessageQueue(size_t numElementsInQueue);
 
   /*
    * @return Number of items of type T that can be written into the FMQ
@@ -106,7 +115,7 @@ struct MessageQueue {
    *
    * @return Pointer to the MQDescriptor associated with the FMQ.
    */
-  const MQDescriptor<flavor>* getDesc() const { return &mDesc; }
+  const MQDescriptor<flavor>* getDesc() const { return mDesc.get(); }
 
  private:
   struct region {
@@ -135,22 +144,22 @@ struct MessageQueue {
 
   void* mapGrantorDescr(uint32_t grantor_idx);
   void unmapGrantorDescr(void* address, uint32_t grantor_idx);
-  MQDescriptor<flavor> mDesc;
+  std::unique_ptr<MQDescriptor<flavor>> mDesc;
   uint8_t* mRing;
   std::atomic<uint64_t>* mReadPtr;
   std::atomic<uint64_t>* mWritePtr;
+  void initMemory();
 };
 
 template <typename T, MQFlavor flavor>
-MessageQueue<T, flavor>::MessageQueue(const MQDescriptorSync& Desc)
-    : mDesc(Desc) {
+void MessageQueue<T, flavor>::initMemory() {
   /*
    * Verify that the the Descriptor contains the minimum number of grantors
    * the native_handle is valid and T matches quantum size.
    */
-  if (!Desc.isHandleValid() ||
-      (Desc.countGrantors() < MQDescriptor<flavor>::kMinGrantorCount) ||
-      (Desc.getQuantum() != sizeof(T))) {
+  if ((mDesc == nullptr) || !mDesc->isHandleValid() ||
+      (mDesc->countGrantors() < MQDescriptor<flavor>::kMinGrantorCount) ||
+      (mDesc->getQuantum() != sizeof(T))) {
     return;
   }
 
@@ -170,6 +179,44 @@ MessageQueue<T, flavor>::MessageQueue(const MQDescriptorSync& Desc)
   mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr
                                      (MQDescriptor<flavor>::DATAPTRPOS));
   CHECK(mRing != nullptr);
+}
+
+template <typename T, MQFlavor flavor>
+MessageQueue<T, flavor>::MessageQueue(const MQDescriptorSync& Desc) {
+  mDesc = std::unique_ptr<MQDescriptor<flavor>>(new MQDescriptor<flavor>(Desc));
+  initMemory();
+}
+
+template <typename T, MQFlavor flavor>
+MessageQueue<T, flavor>::MessageQueue(size_t numElementsInQueue) {
+  size_t kQueueSizeBytes = numElementsInQueue * sizeof(T);
+  /*
+   * The FMQ needs to allocate memory for the ringbuffer as well as for the
+   * read and write pointer counters. Also, Ashmem memory region size needs to
+   * be specified in page-aligned bytes.
+   */
+  size_t kAshmemSizePageAligned =
+      (kQueueSizeBytes + 2 * sizeof(android::hardware::RingBufferPosition) +
+       PAGE_SIZE - 1) &
+      ~(PAGE_SIZE - 1);
+
+  /*
+   * Create an ashmem region to map the memory for the ringbuffer,
+   * read counter and write counter.
+   */
+  int ashmemFd = ashmem_create_region("MessageQueue", kAshmemSizePageAligned);
+  ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
+
+  /*
+   * The native handle will contain the fds to be mapped.
+   */
+  native_handle_t* mq_handle =
+      native_handle_create(1 /* numFds */, 0 /* numInts */);
+  if (mq_handle == nullptr) return;
+  mq_handle->data[0] = ashmemFd;
+  mDesc = std::unique_ptr<MQDescriptor<flavor>>(
+      new MQDescriptor<flavor>(kQueueSizeBytes, mq_handle, sizeof(T)));
+  initMemory();
 }
 
 template <typename T, MQFlavor flavor>
@@ -209,7 +256,7 @@ bool MessageQueue<T, flavor>::read(T* data, size_t count) {
 
 template <typename T, MQFlavor flavor>
 size_t MessageQueue<T, flavor>::availableToWriteBytes() const {
-  return mDesc.getSize() - availableToReadBytes();
+  return mDesc->getSize() - availableToReadBytes();
 }
 
 template <typename T, MQFlavor flavor>
@@ -242,8 +289,8 @@ typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginWrit
     size_t nBytesDesired) const {
   transaction result;
   auto writePtr = mWritePtr->load(std::memory_order_relaxed);
-  size_t writeOffset = writePtr % mDesc.getSize();
-  size_t contiguous = mDesc.getSize() - writeOffset;
+  size_t writeOffset = writePtr % mDesc->getSize();
+  size_t contiguous = mDesc->getSize() - writeOffset;
   if (contiguous < nBytesDesired) {
     result = {{mRing + writeOffset, contiguous},
               {mRing, nBytesDesired - contiguous}};
@@ -294,8 +341,8 @@ typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginRead
     size_t nBytesDesired) const {
   transaction result;
   auto readPtr = mReadPtr->load(std::memory_order_relaxed);
-  size_t readOffset = readPtr % mDesc.getSize();
-  size_t contiguous = mDesc.getSize() - readOffset;
+  size_t readOffset = readPtr % mDesc->getSize();
+  size_t contiguous = mDesc->getSize() - readOffset;
 
   if (contiguous < nBytesDesired) {
     result = {{mRing + readOffset, contiguous},
@@ -318,12 +365,12 @@ void MessageQueue<T, flavor>::commitRead(size_t nBytesRead) {
 
 template <typename T, MQFlavor flavor>
 size_t MessageQueue<T, flavor>::getQuantumSize() const {
-  return mDesc.getQuantum();
+  return mDesc->getQuantum();
 }
 
 template <typename T, MQFlavor flavor>
 size_t MessageQueue<T, flavor>::getQuantumCount() const {
-  return mDesc.getSize() / mDesc.getQuantum();
+  return mDesc->getSize() / mDesc->getQuantum();
 }
 
 template <typename T, MQFlavor flavor>
@@ -333,8 +380,8 @@ bool MessageQueue<T, flavor>::isValid() const {
 
 template <typename T, MQFlavor flavor>
 void* MessageQueue<T, flavor>::mapGrantorDescr(uint32_t grantor_idx) {
-  const native_handle_t* handle = mDesc.getNativeHandle()->handle();
-  auto mGrantors = mDesc.getGrantors();
+  const native_handle_t* handle = mDesc->getNativeHandle()->handle();
+  auto mGrantors = mDesc->getGrantors();
   int fdIndex = mGrantors[grantor_idx].fdIndex;
   /*
    * Offset for mmap must be a multiple of PAGE_SIZE.
@@ -354,7 +401,7 @@ void* MessageQueue<T, flavor>::mapGrantorDescr(uint32_t grantor_idx) {
 template <typename T, MQFlavor flavor>
 void MessageQueue<T, flavor>::unmapGrantorDescr(void* address,
                                                 uint32_t grantor_idx) {
-  auto mGrantors = mDesc.getGrantors();
+  auto mGrantors = mDesc->getGrantors();
   int mapOffset = (mGrantors[grantor_idx].offset / PAGE_SIZE) * PAGE_SIZE;
   int mapLength =
       mGrantors[grantor_idx].offset - mapOffset + mGrantors[grantor_idx].extent;
