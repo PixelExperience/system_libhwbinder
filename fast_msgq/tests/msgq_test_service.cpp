@@ -71,33 +71,44 @@ class TestMsgQ : public ITestMsgQ {
  public:
   TestMsgQ() : fmsg_queue(nullptr) {}
   virtual ~TestMsgQ() {
-    if (fmsg_queue) {
       delete fmsg_queue;
-    }
   }
 
   virtual Return<bool> requestWrite(int count) {
-    uint16_t* data = new uint16_t[count];
+    std::vector<uint16_t> data(count);
     for (int i = 0; i < count; i++) {
       data[i] = i;
     }
-    bool result = fmsg_queue->write(data, count);
-    delete[] data;
+    bool result = fmsg_queue->write(&data[0], count);
     return result;
   }
 
   virtual Return<bool> requestRead(int count) {
-    uint16_t* data = new uint16_t[count];
-    bool result = fmsg_queue->read(data, count) && verifyData(data, count);
-    delete[] data;
+    std::vector<uint16_t> data(count);
+    bool result =
+        fmsg_queue->read(&data[0], count) && verifyData(&data[0], count);
     return result;
   }
 
   virtual Return<void> configureFmqSyncReadWrite(
       ITestMsgQ::configureFmqSyncReadWrite_cb callback) {
-    size_t eventQueueTotal = 4096;
-    const size_t eventQueueDataSize = 2048;
-    int ashmemFd = ashmem_create_region("MessageQueue", eventQueueTotal);
+    static constexpr size_t kNumElementsInQueue = 1024;
+    static constexpr size_t kQueueSizeBytes =
+        kNumElementsInQueue * sizeof(uint16_t);
+    /*
+     * The FMQ needs to allocate memory for the ringbuffer as well as for the
+     * read and write pointer counters. Also, Ashmem memory region size needs to
+     * be specified in page-aligned bytes.
+     */
+    static constexpr size_t kAshmemSizePageAligned =
+        (kQueueSizeBytes + 2 * sizeof(android::hardware::RingBufferPosition) +
+         PAGE_SIZE - 1) &
+        ~(PAGE_SIZE - 1);
+    /*
+     * Create an ashmem region to map the memory for the ringbuffer,
+     * read counter and write counter.
+     */
+    int ashmemFd = ashmem_create_region("MessageQueue", kAshmemSizePageAligned);
     ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
     /*
      * The native handle will contain the fds to be mapped.
@@ -113,9 +124,11 @@ class TestMsgQ : public ITestMsgQ {
     }
 
     mq_handle->data[0] = ashmemFd;
-
-    MQDescriptorSync mydesc(eventQueueDataSize, mq_handle,
-                                     sizeof(uint16_t));
+    /*
+     * The FMQ described by this descriptor can hold a maximum of
+     * kQueueSizeBytes bytes or kNumElementsInQueue items of type uint16_t.
+     */
+    MQDescriptorSync mydesc(kQueueSizeBytes, mq_handle, sizeof(uint16_t));
     if (fmsg_queue) {
       delete fmsg_queue;
     }
