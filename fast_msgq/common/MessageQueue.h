@@ -29,10 +29,9 @@ namespace hardware {
 template <typename T, MQFlavor flavor>
 struct MessageQueue {
   /*
-   * @param Desc The MQDescritptorSync object describes the FMQ of flavor
-   * kSynchronizedReadWrite.
+   * @param Desc MQDescriptor describing the FMQ.
    */
-  MessageQueue(const MQDescriptorSync& Desc);
+  MessageQueue(const MQDescriptor<flavor>& Desc);
 
   ~MessageQueue();
 
@@ -144,11 +143,15 @@ struct MessageQueue {
 
   void* mapGrantorDescr(uint32_t grantor_idx);
   void unmapGrantorDescr(void* address, uint32_t grantor_idx);
+  void initMemory();
+
   std::unique_ptr<MQDescriptor<flavor>> mDesc;
   uint8_t* mRing;
+  /*
+   * TODO(b/31550092): Change to 32 bit read and write pointer counters.
+   */
   std::atomic<uint64_t>* mReadPtr;
   std::atomic<uint64_t>* mWritePtr;
-  void initMemory();
 };
 
 template <typename T, MQFlavor flavor>
@@ -163,9 +166,17 @@ void MessageQueue<T, flavor>::initMemory() {
     return;
   }
 
-  mReadPtr =
-      reinterpret_cast<std::atomic<uint64_t>*>
-      (mapGrantorDescr(MQDescriptor<flavor>::READPTRPOS));
+  if (flavor == kSynchronizedReadWrite) {
+    mReadPtr =
+        reinterpret_cast<std::atomic<uint64_t>*>
+        (mapGrantorDescr(MQDescriptor<flavor>::READPTRPOS));
+  } else {
+    /*
+     * The unsynchronized write flavor of the FMQ may have multiple readers
+     * and each reader would have their own read pointer counter.
+     */
+    mReadPtr = new std::atomic<uint64_t>;
+  }
   CHECK(mReadPtr != nullptr);
 
   mWritePtr =
@@ -182,7 +193,8 @@ void MessageQueue<T, flavor>::initMemory() {
 }
 
 template <typename T, MQFlavor flavor>
-MessageQueue<T, flavor>::MessageQueue(const MQDescriptorSync& Desc) {
+MessageQueue<T, flavor>::MessageQueue(
+    const MQDescriptor<flavor>& Desc) {
   mDesc = std::unique_ptr<MQDescriptor<flavor>>(new MQDescriptor<flavor>(Desc));
   initMemory();
 }
@@ -221,11 +233,16 @@ MessageQueue<T, flavor>::MessageQueue(size_t numElementsInQueue) {
 
 template <typename T, MQFlavor flavor>
 MessageQueue<T, flavor>::~MessageQueue() {
-  if (mReadPtr) unmapGrantorDescr(mReadPtr, MQDescriptor<flavor>::READPTRPOS);
+  if (flavor == kUnsynchronizedWrite) {
+    delete mReadPtr;
+  } else {
+    unmapGrantorDescr(mReadPtr, MQDescriptor<flavor>::READPTRPOS);
+  }
   if (mWritePtr) unmapGrantorDescr(mWritePtr,
                                    MQDescriptor<flavor>::WRITEPTRPOS);
   if (mRing) unmapGrantorDescr(mRing, MQDescriptor<flavor>::DATAPTRPOS);
 }
+
 template <typename T, MQFlavor flavor>
 bool MessageQueue<T, flavor>::write(const T* data) {
   return write(data, 1);
@@ -235,21 +252,40 @@ template <typename T, MQFlavor flavor>
 bool MessageQueue<T, flavor>::read(T* data) {
   return read(data, 1);
 }
+
 template <typename T, MQFlavor flavor>
 bool MessageQueue<T, flavor>::write(const T* data, size_t count) {
-  if (availableToWriteBytes() < sizeof(T) * count) {
+  /*
+   * If read/write synchronization is not enabled, data in the queue
+   * will be overwritten by a write operation when full.
+   */
+  if ((flavor == kSynchronizedReadWrite &&
+       (availableToWriteBytes() < sizeof(T) * count)) ||
+      (count > getQuantumCount()))
     return false;
-  }
 
   return (writeBytes(reinterpret_cast<const uint8_t*>(data),
                      sizeof(T) * count) == sizeof(T) * count);
 }
 
 template <typename T, MQFlavor flavor>
+__attribute__((no_sanitize("integer")))
 bool MessageQueue<T, flavor>::read(T* data, size_t count) {
-  if (availableToReadBytes() < sizeof(T) * count) {
+  if (availableToReadBytes() < sizeof(T) * count) return false;
+  /*
+   * If it is detected that the data in the queue was overwritten
+   * due to the reader process being too slow, the read pointer counter
+   * is set to the same as the write pointer counter to indicate error
+   * and the read returns false;
+   */
+  auto writePtr = mWritePtr->load(std::memory_order_relaxed);
+  auto readPtr = mReadPtr->load(std::memory_order_relaxed);
+
+  if (writePtr - readPtr > mDesc->getSize()) {
+    mReadPtr->store(writePtr, std::memory_order_release);
     return false;
   }
+
   return readBytes(reinterpret_cast<uint8_t*>(data), sizeof(T) * count) ==
          sizeof(T) * count;
 }
@@ -303,6 +339,7 @@ typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginWrit
 }
 
 template <typename T, MQFlavor flavor>
+__attribute__((no_sanitize("integer")))
 void MessageQueue<T, flavor>::commitWrite(size_t nBytesWritten) {
   auto writePtr = mWritePtr->load(std::memory_order_relaxed);
   writePtr += nBytesWritten;
@@ -357,6 +394,7 @@ typename MessageQueue<T, flavor>::transaction MessageQueue<T, flavor>::beginRead
 }
 
 template <typename T, MQFlavor flavor>
+__attribute__((no_sanitize("integer")))
 void MessageQueue<T, flavor>::commitRead(size_t nBytesRead) {
   auto readPtr = mReadPtr->load(std::memory_order_relaxed);
   readPtr += nBytesRead;
@@ -382,6 +420,10 @@ template <typename T, MQFlavor flavor>
 void* MessageQueue<T, flavor>::mapGrantorDescr(uint32_t grantor_idx) {
   const native_handle_t* handle = mDesc->getNativeHandle()->handle();
   auto mGrantors = mDesc->getGrantors();
+  if ((handle == nullptr) || (grantor_idx >= mGrantors.size())) {
+    return nullptr;
+  }
+
   int fdIndex = mGrantors[grantor_idx].fdIndex;
   /*
    * Offset for mmap must be a multiple of PAGE_SIZE.
@@ -395,13 +437,17 @@ void* MessageQueue<T, flavor>::mapGrantorDescr(uint32_t grantor_idx) {
   return (address == MAP_FAILED)
              ? nullptr
              : reinterpret_cast<uint8_t*>(address) +
-             (mGrantors[grantor_idx].offset - mapOffset);
+                   (mGrantors[grantor_idx].offset - mapOffset);
 }
 
 template <typename T, MQFlavor flavor>
 void MessageQueue<T, flavor>::unmapGrantorDescr(void* address,
                                                 uint32_t grantor_idx) {
   auto mGrantors = mDesc->getGrantors();
+  if ((address == nullptr) || (grantor_idx >= mGrantors.size())) {
+    return;
+  }
+
   int mapOffset = (mGrantors[grantor_idx].offset / PAGE_SIZE) * PAGE_SIZE;
   int mapLength =
       mGrantors[grantor_idx].offset - mapOffset + mGrantors[grantor_idx].extent;
