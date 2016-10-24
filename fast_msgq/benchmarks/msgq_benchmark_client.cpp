@@ -18,7 +18,6 @@
 #include <cutils/ashmem.h>
 
 #include <gtest/gtest.h>
-#include <hidl/IServiceManager.h>
 #include <utils/StrongPointer.h>
 #include <chrono>
 #include <iostream>
