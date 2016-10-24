@@ -16,7 +16,6 @@
 
 #include <../common/MessageQueue.h>
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
-#include <hidl/IServiceManager.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/ProcessState.h>
