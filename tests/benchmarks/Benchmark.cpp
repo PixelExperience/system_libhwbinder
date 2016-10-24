@@ -51,35 +51,19 @@ using android::hardware::tests::libhwbinder::V1_0::IBenchmark;
 
 const char gServiceName[] = "android.hardware.tests.libhwbinder.IBenchmark";
 
-class BenchmarkService : public IBenchmark {
-public:
-    BenchmarkService() {}
-    virtual ~BenchmarkService() = default;
-    Return<void> sendVec(const ::android::hardware::hidl_vec<uint8_t>& data, sendVec_cb _hidl_cb) override {
-          _hidl_cb(data);
-          return Void();
-     };
-};
-
 static bool startServer() {
-    BenchmarkService *service = new BenchmarkService();
+    sp<IBenchmark> service = IBenchmark::getService(gServiceName, true);
     service->registerAsService(gServiceName);
     ProcessState::self()->startThreadPool();
     return 0;
 }
 
-static void BM_sendVec(benchmark::State& state) {
-    sp<IBenchmark> service;
+static void BM_sendVec(benchmark::State& state, sp<IBenchmark> service) {
     // Prepare data to IPC
     hidl_vec<uint8_t> data_vec;
     data_vec.resize(state.range_x());
     for (int i = 0; i < state.range_x(); i++) {
        data_vec[i] = i % 256;
-    }
-    // getService automatically retries
-    service = IBenchmark::getService(gServiceName);
-    if (service == nullptr) {
-        state.SkipWithError("Failed to retrieve benchmark service.");
     }
     // Start running
     while (state.KeepRunning()) {
@@ -87,9 +71,47 @@ static void BM_sendVec(benchmark::State& state) {
                });
     }
 }
-BENCHMARK(BM_sendVec)->RangeMultiplier(2)->Range(4, 65536);
+
+static void BM_sendVec_passthrough(benchmark::State& state) {
+    // getService automatically retries
+    sp<IBenchmark> service = IBenchmark::getService(gServiceName, true);
+    if (service == nullptr) {
+        state.SkipWithError("Failed to retrieve benchmark service.");
+    }
+    BM_sendVec(state, service);
+}
+
+static void BM_sendVec_binderize(benchmark::State& state) {
+    // getService automatically retries
+    sp<IBenchmark> service = IBenchmark::getService(gServiceName, false);
+    if (service == nullptr) {
+        state.SkipWithError("Failed to retrieve benchmark service.");
+    }
+    BM_sendVec(state, service);
+}
 
 int main(int argc, char* argv []) {
+    enum HwBinderMode {
+        kBinderize = 0,
+        kPassthrough = 1,
+    };
+    HwBinderMode mode = HwBinderMode::kBinderize;
+
+    // Parse arguments.
+    for (int i = 1; i < argc; i++) {
+        if (string(argv[i]) == "-m") {
+            if (!strcmp(argv[i + 1], "PASSTHROUGH")) {
+                mode = HwBinderMode::kPassthrough;
+            }
+            break;
+        }
+    }
+    if (mode == HwBinderMode::kBinderize) {
+        BENCHMARK(BM_sendVec_binderize)->RangeMultiplier(2)->Range(4, 65536);
+    } else {
+        BENCHMARK(BM_sendVec_passthrough)->RangeMultiplier(2)->Range(4, 65536);
+    }
+
     ::benchmark::Initialize(&argc, argv);
 
     pid_t pid = fork();
