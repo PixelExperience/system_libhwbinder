@@ -13,10 +13,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+
 #include <android-base/logging.h>
 #include <cutils/ashmem.h>
 #include <gtest/gtest.h>
-#include <hidl/IServiceManager.h>
 #include <utils/StrongPointer.h>
 
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
