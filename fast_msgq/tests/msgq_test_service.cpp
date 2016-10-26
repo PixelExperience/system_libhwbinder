@@ -44,7 +44,10 @@ using std::vector;
 
 // libhidl
 using android::hardware::kSynchronizedReadWrite;
+using android::hardware::kUnsynchronizedWrite;
 using android::hardware::MQDescriptorSync;
+using android::hardware::MQDescriptorUnsync;
+
 using android::hardware::MessageQueue;
 
 // Generated HIDL files
@@ -67,43 +70,82 @@ class BinderCallback : public LooperCallback {
 
 class TestMsgQ : public ITestMsgQ {
  public:
-  TestMsgQ() : fmsg_queue(nullptr) {}
+  TestMsgQ()
+      : fmsg_queue_synchronized(nullptr), fmsg_queue_unsynchronized(nullptr) {}
   virtual ~TestMsgQ() {
-      delete fmsg_queue;
+      delete fmsg_queue_synchronized;
+      delete fmsg_queue_unsynchronized;
   }
 
-  virtual Return<bool> requestWrite(int count) {
-    std::vector<uint16_t> data(count);
+  virtual Return<bool> requestWriteFmqSync(int count) {
+    vector<uint16_t> data(count);
     for (int i = 0; i < count; i++) {
       data[i] = i;
     }
-    bool result = fmsg_queue->write(&data[0], count);
+    bool result = fmsg_queue_synchronized->write(&data[0], count);
     return result;
   }
 
-  virtual Return<bool> requestRead(int count) {
-    std::vector<uint16_t> data(count);
+  virtual Return<bool> requestReadFmqSync(int count) {
+    vector<uint16_t> data(count);
+    bool result = fmsg_queue_synchronized->read(&data[0], count)
+                    && verifyData(&data[0], count);
+    return result;
+  }
+
+  virtual Return<bool> requestWriteFmqUnsync(int count) {
+    vector<uint16_t> data(count);
+    for (int i = 0; i < count; i++) {
+      data[i] = i;
+    }
+    bool result = fmsg_queue_unsynchronized->write(&data[0], count);
+    return result;
+  }
+
+  virtual Return<bool> requestReadFmqUnsync(int count) {
+    vector<uint16_t> data(count);
     bool result =
-        fmsg_queue->read(&data[0], count) && verifyData(&data[0], count);
+        fmsg_queue_unsynchronized->read(&data[0], count) && verifyData(&data[0], count);
     return result;
   }
 
   virtual Return<void> configureFmqSyncReadWrite(
       ITestMsgQ::configureFmqSyncReadWrite_cb callback) {
     static constexpr size_t kNumElementsInQueue = 1024;
-    fmsg_queue =
+    fmsg_queue_synchronized =
         new MessageQueue<uint16_t, kSynchronizedReadWrite>(kNumElementsInQueue);
-    if ((fmsg_queue == nullptr) || (fmsg_queue->isValid() == false)) {
+    if ((fmsg_queue_synchronized == nullptr) || (fmsg_queue_synchronized->isValid() == false)) {
       callback(false /* ret */, MQDescriptorSync(
                    std::vector<android::hardware::GrantorDescriptor>(),
                    nullptr /* nhandle */, 0 /* size */));
     } else {
-      callback(true /* ret */, *fmsg_queue->getDesc());
+      callback(true /* ret */, *fmsg_queue_synchronized->getDesc());
     }
     return Void();
   }
+
+  virtual Return<void> configureFmqUnsyncWrite(
+      ITestMsgQ::configureFmqUnsyncWrite_cb callback) {
+    static constexpr size_t kNumElementsInQueue = 1024;
+    fmsg_queue_unsynchronized =
+        new MessageQueue<uint16_t, kUnsynchronizedWrite>(
+            kNumElementsInQueue);
+    if ((fmsg_queue_unsynchronized == nullptr) ||
+        (fmsg_queue_unsynchronized->isValid() == false)) {
+      callback(false /* ret */,
+               MQDescriptorUnsync(
+                   std::vector<android::hardware::GrantorDescriptor>(),
+                   nullptr /* nhandle */, 0 /* size */));
+    } else {
+      callback(true /* ret */, *fmsg_queue_unsynchronized->getDesc());
+    }
+    return Void();
+  }
+
   android::hardware::MessageQueue<uint16_t,
-      android::hardware::kSynchronizedReadWrite>* fmsg_queue;
+      android::hardware::kSynchronizedReadWrite>* fmsg_queue_synchronized;
+  android::hardware::MessageQueue<uint16_t,
+      android::hardware::kUnsynchronizedWrite>* fmsg_queue_unsynchronized;
 
  private:
   /*
