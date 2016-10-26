@@ -54,9 +54,15 @@ public:
     using TransactCallback = std::function<void(Parcel&)>;
 
     enum {
+        /////////////////// User defined transactions
         FIRST_CALL_TRANSACTION  = 0x00000001,
-        LAST_CALL_TRANSACTION   = 0x00ffffff,
+        LAST_CALL_TRANSACTION   = 0x00efffff,
+        /////////////////// HIDL reserved
+        FIRST_HIDL_TRANSACTION  = 0x00f00000,
+        HIDL_DESCRIPTOR_CHAIN_TRANSACTION = FIRST_HIDL_TRANSACTION,
+        LAST_HIDL_TRANSACTION   = 0x00ffffff,
 
+        /////////////////// other reserved transactions
         PING_TRANSACTION        = B_PACK_CHARS('_','P','N','G'),
         DUMP_TRANSACTION        = B_PACK_CHARS('_','D','M','P'),
         SHELL_COMMAND_TRANSACTION = B_PACK_CHARS('_','C','M','D'),
