@@ -2452,7 +2452,7 @@ const native_handle_t* Parcel::readEmbeddedNativeHandle(size_t /*parent_buffer_h
                                                         size_t /*parent_offset*/) const
 {
     // TODO verify parent and offset, as well as fda object
-    return ((const native_handle_t*) readBuffer(nullptr));
+    return readNativeHandleNoDup();
 }
 
 const native_handle_t* Parcel::readNativeHandleNoDup() const
