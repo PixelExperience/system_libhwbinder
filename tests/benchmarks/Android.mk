@@ -55,7 +55,13 @@ LOCAL_MODULE := hwbinderThroughputTest
 LOCAL_MODULE_TAGS := eng tests
 
 LOCAL_SRC_FILES := Benchmark_throughput.cpp
-LOCAL_SHARED_LIBRARIES := libhwbinder libhidl libutils
+LOCAL_SHARED_LIBRARIES := \
+		libhwbinder \
+		libhidl \
+		liblog \
+		libutils \
+		android.hardware.tests.libhwbinder@1.0 \
+
 LOCAL_C_INCLUDES := system/libhwbinder/include
 
 LOCAL_MULTILIB := both
