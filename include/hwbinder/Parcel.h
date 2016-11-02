@@ -199,6 +199,13 @@ public:
     status_t            writeBuffer(const void *buffer, size_t length, size_t *handle);
     status_t            writeEmbeddedBuffer(const void *buffer, size_t length, size_t *handle,
                             size_t parent_buffer_handle, size_t parent_offset);
+private:
+    status_t            writeBufferWithFlags(const void *buffer, size_t length,
+                                             size_t *handle, uint32_t flags);
+    status_t            writeEmbeddedBufferWithFlags(const void *buffer,
+                            size_t length, size_t *handle, uint32_t flags,
+                            size_t parent_buffer_handle, size_t parent_offset);
+public:
     status_t            writeReference(size_t *handle,
                                        size_t child_buffer_handle, size_t child_offset);
     status_t            writeEmbeddedReference(size_t *handle,
