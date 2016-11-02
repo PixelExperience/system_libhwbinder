@@ -1350,9 +1350,15 @@ bool Parcel::validateBufferParent(size_t parent_buffer_handle,
     }
     return true;
 }
-
 status_t Parcel::writeEmbeddedBuffer(
         const void *buffer, size_t length, size_t *handle,
+        size_t parent_buffer_handle, size_t parent_offset) {
+    return writeEmbeddedBufferWithFlags(buffer, length, handle, 0,
+            parent_buffer_handle, parent_offset);
+}
+
+status_t Parcel::writeEmbeddedBufferWithFlags(
+        const void *buffer, size_t length, size_t *handle, uint32_t flags,
         size_t parent_buffer_handle, size_t parent_offset)
 {
     LOG_BUFFER("writeEmbeddedBuffer(%p, %zu, parent = (%zu, %zu)) -> %zu",
@@ -1362,7 +1368,7 @@ status_t Parcel::writeEmbeddedBuffer(
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.buffer = reinterpret_cast<binder_uintptr_t>(buffer);
     obj.length = length;
-    obj.flags = BINDER_BUFFER_HAS_PARENT;
+    obj.flags = flags | BINDER_BUFFER_HAS_PARENT;
     if(!validateBufferParent(parent_buffer_handle, parent_offset))
         return BAD_VALUE;
     obj.parent = parent_buffer_handle;
@@ -1376,13 +1382,19 @@ status_t Parcel::writeEmbeddedBuffer(
 
 status_t Parcel::writeBuffer(const void *buffer, size_t length, size_t *handle)
 {
+    return writeBufferWithFlags(buffer, length, handle, 0);
+}
+
+status_t Parcel::writeBufferWithFlags(const void *buffer, size_t length,
+        size_t *handle, uint32_t flags)
+{
     LOG_BUFFER("writeBuffer(%p, %zu) -> %zu",
         buffer, length, mObjectsSize);
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.buffer = reinterpret_cast<binder_uintptr_t>(buffer);
     obj.length = length;
-    obj.flags = 0;
+    obj.flags = flags;
     if (handle != nullptr) {
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
@@ -1559,48 +1571,63 @@ status_t Parcel::quickFindBuffer(const void *ptr, size_t *handle) const {
 
 status_t Parcel::writeNativeHandleNoDup(const native_handle_t *handle)
 {
-    if (handle == nullptr) {
-        return BAD_VALUE;
-    }
-
     struct binder_fd_array_object fd_array;
     size_t buffer_handle;
-    // A native handle consists of a buffer with file desctiptors inside
-    size_t native_handle_size = sizeof(native_handle_t) +
-        handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
-    status_t status = writeBuffer((void*) handle, native_handle_size, &buffer_handle);
+    // A native handle consists of a buffer with file descriptors inside
+    size_t native_handle_size;
+    uint32_t flags = 0;
+    if (handle == nullptr) {
+        native_handle_size = 0;
+        flags |= BINDER_BUFFER_NULLPTR;
+    } else {
+        native_handle_size = sizeof(native_handle_t)
+                + handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
+    }
+    status_t status = writeBufferWithFlags((void*) handle, native_handle_size, &buffer_handle, flags);
     if (status != OK) {
         return status;
     }
-    fd_array.hdr.type = BINDER_TYPE_FDA;
-    fd_array.num_fds = handle->numFds;
-    fd_array.parent = buffer_handle;
-    fd_array.parent_offset = offsetof(native_handle_t, data);
-    return writeObject(fd_array, true /* nullMetaData */);
+    if (handle != nullptr) {
+        // do not write the fdarray if nullptr
+        fd_array.hdr.type = BINDER_TYPE_FDA;
+        fd_array.num_fds = handle->numFds;
+        fd_array.parent = buffer_handle;
+        fd_array.parent_offset = offsetof(native_handle_t, data);
+        return writeObject(fd_array, true /* nullMetaData */);
+    }
+    return OK;
 }
 
 status_t Parcel::writeEmbeddedNativeHandle(const native_handle_t *handle,
                                            size_t parent_buffer_handle,
                                            size_t parent_offset)
 {
-    if (handle == nullptr) {
-        return BAD_VALUE;
-    }
     struct binder_fd_array_object fd_array;
     size_t buffer_handle;
-    // A native handle consists of a buffer with file desctiptors inside
-    size_t native_handle_size = sizeof(native_handle_t) +
-        handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
-    status_t status = writeEmbeddedBuffer((void*) handle, native_handle_size, &buffer_handle,
+    // A native handle consists of a buffer with file descriptors inside
+    size_t native_handle_size;
+    uint32_t flags = 0;
+    if (handle == nullptr) {
+        native_handle_size = 0;
+        flags |= BINDER_BUFFER_NULLPTR;
+    } else {
+        native_handle_size = sizeof(native_handle_t)
+                + handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
+    }
+    status_t status = writeEmbeddedBufferWithFlags((void*) handle,
+            native_handle_size, &buffer_handle, flags,
             parent_buffer_handle, parent_offset);
     if (status != OK) {
         return status;
     }
-    fd_array.hdr.type = BINDER_TYPE_FDA;
-    fd_array.num_fds = handle->numFds;
-    fd_array.parent = buffer_handle;
-    fd_array.parent_offset = offsetof(native_handle_t, data);
-    return writeObject(fd_array, true /* nullMetaData */);
+    if (handle != nullptr) {
+        fd_array.hdr.type = BINDER_TYPE_FDA;
+        fd_array.num_fds = handle->numFds;
+        fd_array.parent = buffer_handle;
+        fd_array.parent_offset = offsetof(native_handle_t, data);
+        return writeObject(fd_array, true /* nullMetaData */);
+    }
+    return OK;
 }
 
 void Parcel::remove(size_t /*start*/, size_t /*amt*/)
@@ -2459,6 +2486,7 @@ const native_handle_t* Parcel::readNativeHandleNoDup() const
 {
     native_handle_t *nat_handle = (native_handle_t*) readBuffer(nullptr);
     if (nat_handle == nullptr) {
+        // either error, or it is null in the first place.
         return nat_handle;
     }
     const binder_fd_array_object* fd_array_obj =
