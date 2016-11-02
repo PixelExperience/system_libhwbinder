@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define LOG_TAG "HwbinderThroughputTest"
 
-#include <hwbinder/Binder.h>
-#include <hwbinder/IBinder.h>
+#include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hidl/HidlSupport.h>
-#include <hidl/IServiceManager.h>
 
 #include <string>
 #include <cstring>
-#include <cstdlib>
-#include <cstdio>
 
 #include <iostream>
 #include <vector>
@@ -36,9 +33,8 @@ using namespace std;
 using namespace android;
 using namespace android::hardware;
 
-enum HwBinderWorkerServiceCode {
-    HWBINDER_NOP = IBinder::FIRST_CALL_TRANSACTION,
-};
+// Generated HIDL files
+using android::hardware::tests::libhwbinder::V1_0::IBenchmark;
 
 #define ASSERT_TRUE(cond) \
 do { \
@@ -47,29 +43,6 @@ do { \
        exit(EXIT_FAILURE); \
     } \
 } while (0)
-
-class HwBinderWorkerService : public BBinder
-{
- public:
-    HwBinderWorkerService() {
-    }
-    ~HwBinderWorkerService() {
-    }
-    virtual status_t onTransact(uint32_t code,
-            const Parcel& data, Parcel* reply,
-            uint32_t flags = 0, TransactCallback callback = nullptr) {
-        (void) flags;
-        (void) data;
-        (void) reply;
-        (void) callback;
-        switch (code) {
-            case HWBINDER_NOP:
-                return NO_ERROR;
-            default:
-                return UNKNOWN_TRANSACTION;
-        };
-    }
-};
 
 class Pipe {
     int m_readFd;
@@ -197,63 +170,68 @@ struct ProcResults {
     }
 };
 
-String16 generateServiceName(int num)
-        {
-    char num_str[32];
-    snprintf(num_str, sizeof(num_str), "%d", num);
-    String16 serviceName = String16("hwbinderWorker") + String16(num_str);
+string generateServiceName(int num) {
+    string serviceName = "hwbinderService" + to_string(num);
     return serviceName;
 }
 
-void worker_fx(
-        int num,
-        int worker_count,
-        int iterations,
-        Pipe p)
-        {
-    // Create HwBinderWorkerService and for go.
+void service_fx(const string &serviceName, Pipe p) {
+    // Start service.
+    sp<IBenchmark> server = IBenchmark::getService(serviceName, true);
+    ALOGD("Registering %s", serviceName.c_str());
+    server->registerAsService(serviceName);
+    ALOGD("Starting %s", serviceName.c_str());
+    ProcessState::self()->setThreadPoolMaxThreadCount(0);
     ProcessState::self()->startThreadPool();
-    sp<IServiceManager> serviceMgr = defaultServiceManager();
-    sp<HwBinderWorkerService> service = new HwBinderWorkerService;
-    serviceMgr->addService(
-                           generateServiceName(num),
-                           service, hidl_version(1, 0));
 
+    // Signal service started to master and wait to exit.
+    p.signal();
+    p.wait();
+    exit(EXIT_SUCCESS);
+}
+
+void worker_fx(int num, int service_count, int iterations, Pipe p) {
     srand(num);
     p.signal();
     p.wait();
 
-    // Get references to other binder services.
-    cout << "Created HwBinderWorker" << num << endl;
-    (void) worker_count;
-    vector<sp<IBinder>> workers;
-    for (int i = 0; i < worker_count; i++) {
-        if (num == i) continue;
-        workers.push_back(serviceMgr->getService(
-                                                 generateServiceName(i),
-                                                 hidl_version(1, 0)));
+    // Get references to test services.
+    vector<sp<IBenchmark>> workers;
+
+    for (int i = 0; i < service_count; i++) {
+        sp <IBenchmark> service = IBenchmark::getService(
+                generateServiceName(i));
+        ASSERT_TRUE(service != NULL);
+        ASSERT_TRUE(service->isRemote());
+        workers.push_back(service);
     }
 
-    // Run the benchmark.
     ProcResults results;
     chrono::time_point<chrono::high_resolution_clock> start, end;
+    // Prepare data to IPC
+    hidl_vec<uint8_t> data_vec;
+    data_vec.resize(16);
+    for (size_t i = 0; i < data_vec.size(); i++) {
+        data_vec[i] = i;
+    }
+    // Run the benchmark.
     for (int i = 0; i < iterations; i++) {
-        int target = rand() % workers.size();
-        Parcel data, reply;
+        // Randomly pick a service.
+        int target = rand() % service_count;
+
         start = chrono::high_resolution_clock::now();
-        status_t ret = workers[target]->transact(HWBINDER_NOP, data, &reply);
+        Status status = workers[target]->sendVec(data_vec, [&](const auto &) {})
+                        .getStatus();
+        if (!status.isOk()) {
+            cout << "thread " << num << " failed status: "
+                 << status.exceptionCode() << endl;
+            exit(EXIT_FAILURE);
+        }
         end = chrono::high_resolution_clock::now();
 
         uint64_t cur_time = uint64_t(
-                chrono::duration_cast < chrono::nanoseconds
-                    > (end - start).count());
+               chrono::duration_cast<chrono::nanoseconds>(end - start).count());
         results.add_time(cur_time);
-
-        if (ret != NO_ERROR) {
-            cout << "thread " << num << " failed " << ret << "i : " << i
-                 << endl;
-            exit(EXIT_FAILURE);
-        }
     }
     // Signal completion to master and wait.
     p.signal();
@@ -266,8 +244,7 @@ void worker_fx(
     exit(EXIT_SUCCESS);
 }
 
-Pipe make_worker(int num, int iterations, int worker_count)
-        {
+Pipe make_service(string service_name) {
     auto pipe_pair = Pipe::createPipePair();
     pid_t pid = fork();
     if (pid) {
@@ -275,34 +252,47 @@ Pipe make_worker(int num, int iterations, int worker_count)
         return move(get<0>(pipe_pair));
     } else {
         /* child */
-        worker_fx(num, worker_count, iterations, move(get<1>(pipe_pair)));
+        service_fx(service_name, move(get<1>(pipe_pair)));
         /* never get here */
         return move(get<0>(pipe_pair));
     }
-
 }
 
-void wait_all(vector<Pipe>& v)
-        {
+Pipe make_worker(int num, int iterations, int service_count) {
+    auto pipe_pair = Pipe::createPipePair();
+    pid_t pid = fork();
+    if (pid) {
+        /* parent */
+        return move(get<0>(pipe_pair));
+    } else {
+        /* child */
+        worker_fx(num, service_count, iterations, move(get<1>(pipe_pair)));
+        /* never get here */
+        return move(get<0>(pipe_pair));
+    }
+}
+
+void wait_all(vector<Pipe>& v) {
     for (size_t i = 0; i < v.size(); i++) {
         v[i].wait();
     }
 }
 
-void signal_all(vector<Pipe>& v)
-        {
+void signal_all(vector<Pipe>& v) {
     for (size_t i = 0; i < v.size(); i++) {
         v[i].signal();
     }
 }
 
-int main(int argc, char *argv[])
-        {
+int main(int argc, char *argv[]) {
+    // Num of workers.
     int workers = 2;
+    // Num of services.
+    int services = -1;
     int iterations = 10000;
-    (void) argc;
-    (void) argv;
-    vector<Pipe> pipes;
+
+    vector<Pipe> worker_pipes;
+    vector<Pipe> service_pipes;
 
     // Parse arguments.
     for (int i = 1; i < argc; i++) {
@@ -316,20 +306,39 @@ int main(int argc, char *argv[])
             i++;
             continue;
         }
+        if (string(argv[i]) == "-s") {
+            services = atoi(argv[i + 1]);
+            i++;
+            continue;
+        }
     }
+    // If service number is not provided, set it the same as the worker number.
+    if (services == -1) {
+        services = workers;
+    }
+    // Create services.
+    vector<pid_t> pIds;
+    for (int i = 0; i < services; i++) {
+        string serviceName = generateServiceName(i);
+        cout << "creating service: " << serviceName << endl;
+        service_pipes.push_back(make_service(serviceName));
+    }
+    // Wait until all services are up.
+    wait_all(service_pipes);
 
-    // Create all the workers and wait for them to spawn.
+    // Create workers (test clients).
     for (int i = 0; i < workers; i++) {
-        pipes.push_back(make_worker(i, iterations, workers));
+        worker_pipes.push_back(make_worker(i, iterations, services));
     }
-    wait_all(pipes);
+    // Wait untill all workers are ready.
+    wait_all(worker_pipes);
 
     // Run the workers and wait for completion.
     chrono::time_point<chrono::high_resolution_clock> start, end;
     cout << "waiting for workers to complete" << endl;
     start = chrono::high_resolution_clock::now();
-    signal_all(pipes);
-    wait_all(pipes);
+    signal_all(worker_pipes);
+    wait_all(worker_pipes);
     end = chrono::high_resolution_clock::now();
 
     // Calculate overall throughput.
@@ -340,18 +349,28 @@ int main(int argc, char *argv[])
 
     // Collect all results from the workers.
     cout << "collecting results" << endl;
-    signal_all(pipes);
+    signal_all(worker_pipes);
     ProcResults tot_results;
     for (int i = 0; i < workers; i++) {
         ProcResults tmp_results;
-        pipes[i].recv(tmp_results);
+        worker_pipes[i].recv(tmp_results);
         tot_results = ProcResults::combine(tot_results, tmp_results);
     }
     tot_results.dump();
 
+    // Kill all the services.
+    cout << "killing services" << endl;
+    signal_all(service_pipes);
+    for (int i = 0; i < services; i++) {
+        int status;
+        wait(&status);
+        if (status != 0) {
+            cout << "nonzero child status" << status << endl;
+        }
+    }
     // Kill all the workers.
     cout << "killing workers" << endl;
-    signal_all(pipes);
+    signal_all(worker_pipes);
     for (int i = 0; i < workers; i++) {
         int status;
         wait(&status);
