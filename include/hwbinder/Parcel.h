@@ -72,7 +72,7 @@ public:
     bool                hasFileDescriptors() const;
 
     // Writes the RPC header.
-    status_t            writeInterfaceToken(const String16& interface);
+    status_t            writeInterfaceToken(const char* interface);
 
     // Parses the RPC header, returning true if the interface name
     // in the header matches the expected interface from the caller.
@@ -81,7 +81,7 @@ public:
     // propagating the StrictMode policy mask, populating the current
     // IPCThreadState, which as an optimization may optionally be
     // passed in.
-    bool                enforceInterface(const String16& interface,
+    bool                enforceInterface(const char* interface,
                                          IPCThreadState* threadState = NULL) const;
     bool                checkInterface(IBinder*) const;
 
