@@ -605,20 +605,15 @@ bool Parcel::hasFileDescriptors() const
 }
 
 // Write RPC headers.  (previously just the interface token)
-status_t Parcel::writeInterfaceToken(const String16& interface)
+status_t Parcel::writeInterfaceToken(const char* interface)
 {
     writeInt32(IPCThreadState::self()->getStrictModePolicy() |
                STRICT_MODE_PENALTY_GATHER);
     // currently the interface identification token is just its name as a string
-    return writeString16(interface);
+    return writeCString(interface);
 }
 
-bool Parcel::checkInterface(IBinder* binder) const
-{
-    return enforceInterface(binder->getInterfaceDescriptor());
-}
-
-bool Parcel::enforceInterface(const String16& interface,
+bool Parcel::enforceInterface(const char* interface,
                               IPCThreadState* threadState) const
 {
     int32_t strictPolicy = readInt32();
@@ -635,8 +630,8 @@ bool Parcel::enforceInterface(const String16& interface,
     } else {
       threadState->setStrictModePolicy(strictPolicy);
     }
-    const String16 str(readString16());
-    if (str == interface) {
+    const char* str = readCString();
+    if (strcmp(str, interface) == 0) {
         return true;
     } else {
         ALOGW("**** enforceInterface() expected '%s' but read '%s'",
