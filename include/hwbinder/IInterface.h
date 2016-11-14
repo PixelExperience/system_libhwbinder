@@ -106,10 +106,6 @@ protected:
         return intr;                                                        \
     }
 
-#define CHECK_HWBINDER_INTERFACE(interface, data, reply)                \
-    if (!data.checkInterface(this)) { return PERMISSION_DENIED; }       \
-
-
 // ----------------------------------------------------------------------
 // No user-serviceable parts after this...
 
