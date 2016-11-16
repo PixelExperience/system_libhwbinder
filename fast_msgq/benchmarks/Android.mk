@@ -21,7 +21,7 @@ LOCAL_MODULE := mq_benchmark_service
 LOCAL_SRC_FILES := \
     msgq_benchmark_service.cpp
 
-LOCAL_SHARED_LIBRARIES := libhwbinder libbase liblog libcutils libutils libhidl
+LOCAL_SHARED_LIBRARIES := libhwbinder libbase liblog libcutils libutils libhidlbase libhidltransport
 LOCAL_SHARED_LIBRARIES += android.hardware.benchmarks.msgq@1.0
 include $(BUILD_EXECUTABLE)
 
@@ -29,7 +29,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     msgq_benchmark_client.cpp
 
-LOCAL_SHARED_LIBRARIES := libhwbinder libbase libcutils libutils libhidl
+LOCAL_SHARED_LIBRARIES := libhwbinder libbase libcutils libutils libhidlbase libhidltransport
 LOCAL_SHARED_LIBRARIES += android.hardware.benchmarks.msgq@1.0
 LOCAL_MODULE := mq_benchmark_client
 include $(BUILD_NATIVE_TEST)
