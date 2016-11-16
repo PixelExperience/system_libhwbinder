@@ -74,8 +74,8 @@ static void BM_sendVec_binder(benchmark::State& state) {
     // Prepare data to IPC
     vector<uint8_t> data_vec;
     vector<uint8_t> data_return;
-    data_vec.resize(state.range_x());
-    for (int i = 0; i < state.range_x(); i++) {
+    data_vec.resize(state.range(0));
+    for (int i = 0; i < state.range(0); i++) {
        data_vec[i] = i % 256;
     }
     // getService automatically retries
