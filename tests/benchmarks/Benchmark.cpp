@@ -61,8 +61,8 @@ static bool startServer() {
 static void BM_sendVec(benchmark::State& state, sp<IBenchmark> service) {
     // Prepare data to IPC
     hidl_vec<uint8_t> data_vec;
-    data_vec.resize(state.range_x());
-    for (int i = 0; i < state.range_x(); i++) {
+    data_vec.resize(state.range(0));
+    for (int i = 0; i < state.range(0); i++) {
        data_vec[i] = i % 256;
     }
     // Start running
