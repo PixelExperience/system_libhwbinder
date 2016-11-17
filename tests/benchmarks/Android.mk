@@ -57,11 +57,11 @@ LOCAL_MODULE_TAGS := eng tests
 
 LOCAL_SRC_FILES := Benchmark_throughput.cpp
 LOCAL_SHARED_LIBRARIES := \
-		libhwbinder \
-		libhidl \
-		liblog \
-		libutils \
-		android.hardware.tests.libhwbinder@1.0 \
+    libhwbinder \
+    libhidl \
+    liblog \
+    libutils \
+    android.hardware.tests.libhwbinder@1.0
 
 LOCAL_REQUIRED_MODULES := android.hardware.tests.libhwbinder@1.0-impl
 LOCAL_C_INCLUDES := system/libhwbinder/include

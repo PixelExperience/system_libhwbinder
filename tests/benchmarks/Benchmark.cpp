@@ -74,18 +74,24 @@ static void BM_sendVec(benchmark::State& state, sp<IBenchmark> service) {
 
 static void BM_sendVec_passthrough(benchmark::State& state) {
     // getService automatically retries
-    sp<IBenchmark> service = IBenchmark::getService(gServiceName, true);
+    sp<IBenchmark> service = IBenchmark::getService(gServiceName, true /* getStub */);
     if (service == nullptr) {
         state.SkipWithError("Failed to retrieve benchmark service.");
+    }
+    if (service->isRemote()) {
+        state.SkipWithError("Benchmark service is remote.");
     }
     BM_sendVec(state, service);
 }
 
 static void BM_sendVec_binderize(benchmark::State& state) {
     // getService automatically retries
-    sp<IBenchmark> service = IBenchmark::getService(gServiceName, false);
+    sp<IBenchmark> service = IBenchmark::getService(gServiceName);
     if (service == nullptr) {
         state.SkipWithError("Failed to retrieve benchmark service.");
+    }
+    if (!service->isRemote()) {
+        state.SkipWithError("Benchmark service is not remote");
     }
     BM_sendVec(state, service);
 }
