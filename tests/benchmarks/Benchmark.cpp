@@ -67,7 +67,7 @@ static void BM_sendVec(benchmark::State& state, sp<IBenchmark> service) {
     }
     // Start running
     while (state.KeepRunning()) {
-       service->sendVec(data_vec, [&] (auto /*res*/) {
+       service->sendVec(data_vec, [&] (const auto &/*res*/) {
                });
     }
 }
