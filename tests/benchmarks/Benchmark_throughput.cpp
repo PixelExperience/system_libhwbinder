@@ -190,7 +190,12 @@ void service_fx(const string &serviceName, Pipe p) {
     exit(EXIT_SUCCESS);
 }
 
-void worker_fx(int num, int service_count, int iterations, Pipe p) {
+void worker_fx(
+        int num,
+        int iterations,
+        int service_count,
+        bool get_stub,
+        Pipe p) {
     srand(num);
     p.signal();
     p.wait();
@@ -199,10 +204,14 @@ void worker_fx(int num, int service_count, int iterations, Pipe p) {
     vector<sp<IBenchmark>> workers;
 
     for (int i = 0; i < service_count; i++) {
-        sp <IBenchmark> service = IBenchmark::getService(
-                generateServiceName(i));
+        sp<IBenchmark> service = IBenchmark::getService(
+                generateServiceName(i), get_stub);
         ASSERT_TRUE(service != NULL);
-        ASSERT_TRUE(service->isRemote());
+        if (get_stub) {
+            ASSERT_TRUE(!service->isRemote());
+        } else {
+            ASSERT_TRUE(service->isRemote());
+        }
         workers.push_back(service);
     }
 
@@ -221,11 +230,11 @@ void worker_fx(int num, int service_count, int iterations, Pipe p) {
 
         start = chrono::high_resolution_clock::now();
         Status status = workers[target]->sendVec(data_vec, [&](const auto &) {})
-                        .getStatus();
+                .getStatus();
         if (!status.isOk()) {
             cout << "thread " << num << " failed status: "
-                 << status.exceptionCode() << endl;
-            exit(EXIT_FAILURE);
+                << status.exceptionCode() << endl;
+            exit (EXIT_FAILURE);
         }
         end = chrono::high_resolution_clock::now();
 
@@ -241,7 +250,7 @@ void worker_fx(int num, int service_count, int iterations, Pipe p) {
     p.send(results);
     p.wait();
 
-    exit(EXIT_SUCCESS);
+    exit (EXIT_SUCCESS);
 }
 
 Pipe make_service(string service_name) {
@@ -258,7 +267,7 @@ Pipe make_service(string service_name) {
     }
 }
 
-Pipe make_worker(int num, int iterations, int service_count) {
+Pipe make_worker(int num, int iterations, int service_count, bool get_stub) {
     auto pipe_pair = Pipe::createPipePair();
     pid_t pid = fork();
     if (pid) {
@@ -266,7 +275,8 @@ Pipe make_worker(int num, int iterations, int service_count) {
         return move(get<0>(pipe_pair));
     } else {
         /* child */
-        worker_fx(num, service_count, iterations, move(get<1>(pipe_pair)));
+        worker_fx(num, iterations, service_count, get_stub,
+                  move(get<1>(pipe_pair)));
         /* never get here */
         return move(get<0>(pipe_pair));
     }
@@ -285,6 +295,12 @@ void signal_all(vector<Pipe>& v) {
 }
 
 int main(int argc, char *argv[]) {
+    enum HwBinderMode {
+        kBinderize = 0,
+        kPassthrough = 1,
+    };
+    HwBinderMode mode = HwBinderMode::kBinderize;
+
     // Num of workers.
     int workers = 2;
     // Num of services.
@@ -296,6 +312,13 @@ int main(int argc, char *argv[]) {
 
     // Parse arguments.
     for (int i = 1; i < argc; i++) {
+        if (string(argv[i]) == "-m") {
+            if (!strcmp(argv[i + 1], "PASSTHROUGH")) {
+                mode = HwBinderMode::kPassthrough;
+            }
+            i++;
+            continue;
+        }
         if (string(argv[i]) == "-w") {
             workers = atoi(argv[i + 1]);
             i++;
@@ -316,19 +339,22 @@ int main(int argc, char *argv[]) {
     if (services == -1) {
         services = workers;
     }
-    // Create services.
-    vector<pid_t> pIds;
-    for (int i = 0; i < services; i++) {
-        string serviceName = generateServiceName(i);
-        cout << "creating service: " << serviceName << endl;
-        service_pipes.push_back(make_service(serviceName));
+    if (mode == HwBinderMode::kBinderize) {
+        // Create services.
+        vector<pid_t> pIds;
+        for (int i = 0; i < services; i++) {
+            string serviceName = generateServiceName(i);
+            cout << "creating service: " << serviceName << endl;
+            service_pipes.push_back(make_service(serviceName));
+        }
+        // Wait until all services are up.
+        wait_all(service_pipes);
     }
-    // Wait until all services are up.
-    wait_all(service_pipes);
 
     // Create workers (test clients).
+    bool get_stub = mode == HwBinderMode::kBinderize ? false : true;
     for (int i = 0; i < workers; i++) {
-        worker_pipes.push_back(make_worker(i, iterations, services));
+        worker_pipes.push_back(make_worker(i, iterations, services, get_stub));
     }
     // Wait untill all workers are ready.
     wait_all(worker_pipes);
@@ -358,14 +384,16 @@ int main(int argc, char *argv[]) {
     }
     tot_results.dump();
 
-    // Kill all the services.
-    cout << "killing services" << endl;
-    signal_all(service_pipes);
-    for (int i = 0; i < services; i++) {
-        int status;
-        wait(&status);
-        if (status != 0) {
-            cout << "nonzero child status" << status << endl;
+    if (mode == HwBinderMode::kBinderize) {
+        // Kill all the services.
+        cout << "killing services" << endl;
+        signal_all(service_pipes);
+        for (int i = 0; i < services; i++) {
+            int status;
+            wait(&status);
+            if (status != 0) {
+                cout << "nonzero child status" << status << endl;
+            }
         }
     }
     // Kill all the workers.
