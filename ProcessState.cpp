@@ -40,7 +40,7 @@
 #include <sys/types.h>
 
 #define BINDER_VM_SIZE ((1*1024*1024) - (4096 *2))
-#define DEFAULT_MAX_BINDER_THREADS 15
+#define DEFAULT_MAX_BINDER_THREADS 0
 
 // -------------------------------------------------------------------------
 
@@ -132,7 +132,9 @@ void ProcessState::startThreadPool()
     AutoMutex _l(mLock);
     if (!mThreadPoolStarted) {
         mThreadPoolStarted = true;
-        spawnPooledThread(true);
+        if (mSpawnThreadOnStart) {
+            spawnPooledThread(true);
+        }
     }
 }
 
@@ -278,7 +280,7 @@ String8 ProcessState::makeBinderThreadName() {
     int32_t s = android_atomic_add(1, &mThreadPoolSeq);
     pid_t pid = getpid();
     String8 name;
-    name.appendFormat("Binder:%d_%X", pid, s);
+    name.appendFormat("HwBinder:%d_%X", pid, s);
     return name;
 }
 
@@ -292,10 +294,20 @@ void ProcessState::spawnPooledThread(bool isMain)
     }
 }
 
-status_t ProcessState::setThreadPoolMaxThreadCount(size_t maxThreads) {
+status_t ProcessState::setThreadPoolConfiguration(size_t maxThreads, bool callerJoinsPool) {
+    LOG_ALWAYS_FATAL_IF(maxThreads < 1, "Binder threadpool must have a minimum of one thread.");
     status_t result = NO_ERROR;
-    if (ioctl(mDriverFD, BINDER_SET_MAX_THREADS, &maxThreads) != -1) {
+    // the BINDER_SET_MAX_THREADS ioctl really tells the kernel how many threads
+    // it's allowed to spawn, *in addition* to any threads we may have already
+    // spawned locally. If 'callerJoinsPool' is true, it means that the caller
+    // will join the threadpool, and so the kernel needs to create one less thread.
+    // If 'callerJoinsPool' is false, we will still spawn a thread locally, and we should
+    // also tell the kernel to create one less thread than what was requested here.
+    size_t kernelMaxThreads = maxThreads - 1;
+    if (ioctl(mDriverFD, BINDER_SET_MAX_THREADS, &kernelMaxThreads) != -1) {
+        AutoMutex _l(mLock);
         mMaxThreads = maxThreads;
+        mSpawnThreadOnStart = !callerJoinsPool;
     } else {
         result = -errno;
         ALOGE("Binder ioctl to set max threads failed: %s", strerror(-result));
@@ -346,6 +358,7 @@ ProcessState::ProcessState()
     , mBinderContextCheckFunc(NULL)
     , mBinderContextUserData(NULL)
     , mThreadPoolStarted(false)
+    , mSpawnThreadOnStart(true)
     , mThreadPoolSeq(1)
 {
     if (mDriverFD >= 0) {

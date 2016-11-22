@@ -16,10 +16,10 @@
 
 #define LOG_TAG "libhwbinder_benchmark"
 
+#include <android/log.h>
 #include <benchmark/benchmark.h>
 #include <hidl/Status.h>
 #include <hidl/ServiceManagement.h>
-#include <hwbinder/ProcessState.h>
 #include <iostream>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -33,9 +33,8 @@ using android::OK;
 using android::sp;
 using android::status_t;
 
-// libhwbinder:
+// libhidl:
 using android::hardware::defaultServiceManager;
-using android::hardware::ProcessState;
 using android::hardware::Return;
 using android::hardware::Void;
 using android::hardware::hidl_vec;
@@ -62,7 +61,6 @@ static bool startServer() {
         exit(EXIT_FAILURE);
     }
 
-    ProcessState::self()->startThreadPool();
     return 0;
 }
 
