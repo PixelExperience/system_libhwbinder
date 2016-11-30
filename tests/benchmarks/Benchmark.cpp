@@ -33,7 +33,6 @@ using android::sp;
 using android::status_t;
 
 // libhwbinder:
-using android::hardware::BnInterface;
 using android::hardware::defaultServiceManager;
 using android::hardware::ProcessState;
 using android::hardware::Return;
