@@ -179,7 +179,13 @@ void service_fx(const string &serviceName, Pipe p) {
     // Start service.
     sp<IBenchmark> server = IBenchmark::getService(serviceName, true);
     ALOGD("Registering %s", serviceName.c_str());
-    server->registerAsService(serviceName);
+    status_t status = server->registerAsService(serviceName);
+
+    if (status != ::android::OK) {
+        ALOGE("Failed to register service %s", serviceName.c_str());
+        exit(EXIT_FAILURE);
+    }
+
     ALOGD("Starting %s", serviceName.c_str());
     ProcessState::self()->setThreadPoolMaxThreadCount(0);
     ProcessState::self()->startThreadPool();
