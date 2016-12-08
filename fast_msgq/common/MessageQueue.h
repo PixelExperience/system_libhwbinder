@@ -30,8 +30,10 @@ template <typename T, MQFlavor flavor>
 struct MessageQueue {
   /*
    * @param Desc MQDescriptor describing the FMQ.
+   * @param resetPointers bool indicating whether the read/write pointers
+   * should be reset or not.
    */
-  MessageQueue(const MQDescriptor<flavor>& Desc);
+  MessageQueue(const MQDescriptor<flavor>& Desc, bool resetPointers = true);
 
   ~MessageQueue();
 
@@ -143,7 +145,7 @@ struct MessageQueue {
 
   void* mapGrantorDescr(uint32_t grantor_idx);
   void unmapGrantorDescr(void* address, uint32_t grantor_idx);
-  void initMemory();
+  void initMemory(bool resetPointers);
 
   std::unique_ptr<MQDescriptor<flavor>> mDesc;
   uint8_t* mRing;
@@ -155,7 +157,7 @@ struct MessageQueue {
 };
 
 template <typename T, MQFlavor flavor>
-void MessageQueue<T, flavor>::initMemory() {
+void MessageQueue<T, flavor>::initMemory(bool resetPointers) {
   /*
    * Verify that the the Descriptor contains the minimum number of grantors
    * the native_handle is valid and T matches quantum size.
@@ -184,8 +186,13 @@ void MessageQueue<T, flavor>::initMemory() {
       (mapGrantorDescr(MQDescriptor<flavor>::WRITEPTRPOS));
   CHECK(mWritePtr != nullptr);
 
-  mReadPtr->store(0, std::memory_order_release);
-  mWritePtr->store(0, std::memory_order_release);
+  if (resetPointers) {
+    mReadPtr->store(0, std::memory_order_release);
+    mWritePtr->store(0, std::memory_order_release);
+  } else if (flavor != kSynchronizedReadWrite) {
+    // Always reset the read pointer.
+    mReadPtr->store(0, std::memory_order_release);
+  }
 
   mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr
                                      (MQDescriptor<flavor>::DATAPTRPOS));
@@ -194,9 +201,9 @@ void MessageQueue<T, flavor>::initMemory() {
 
 template <typename T, MQFlavor flavor>
 MessageQueue<T, flavor>::MessageQueue(
-    const MQDescriptor<flavor>& Desc) {
+    const MQDescriptor<flavor>& Desc, bool resetPointers) {
   mDesc = std::unique_ptr<MQDescriptor<flavor>>(new MQDescriptor<flavor>(Desc));
-  initMemory();
+  initMemory(resetPointers);
 }
 
 template <typename T, MQFlavor flavor>
@@ -228,7 +235,7 @@ MessageQueue<T, flavor>::MessageQueue(size_t numElementsInQueue) {
   mq_handle->data[0] = ashmemFd;
   mDesc = std::unique_ptr<MQDescriptor<flavor>>(
       new MQDescriptor<flavor>(kQueueSizeBytes, mq_handle, sizeof(T)));
-  initMemory();
+  initMemory(true);
 }
 
 template <typename T, MQFlavor flavor>
