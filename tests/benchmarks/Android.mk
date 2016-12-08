@@ -33,7 +33,6 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.tests.libhwbinder@1.0
 LOCAL_REQUIRED_MODULES := android.hardware.tests.libhwbinder@1.0-impl
 
-LOCAL_STATIC_LIBRARIES := libtestUtil
 LOCAL_MULTILIB := both
 
 include $(BUILD_NATIVE_BENCHMARK)
@@ -53,7 +52,6 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     android.hardware.tests.libbinder
 
-LOCAL_STATIC_LIBRARIES := libtestUtil
 LOCAL_MULTILIB := both
 
 include $(BUILD_NATIVE_BENCHMARK)
