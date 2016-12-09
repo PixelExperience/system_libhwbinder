@@ -14,6 +14,7 @@
 * limitations under the License.
 */
 
+#include <hidl/ServiceManagement.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/ProcessState.h>

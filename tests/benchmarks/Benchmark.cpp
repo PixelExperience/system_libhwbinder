@@ -18,6 +18,7 @@
 
 #include <benchmark/benchmark.h>
 #include <hidl/Status.h>
+#include <hidl/ServiceManagement.h>
 #include <hwbinder/ProcessState.h>
 #include <iostream>
 #include <sys/types.h>
