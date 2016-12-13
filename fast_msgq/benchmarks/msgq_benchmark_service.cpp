@@ -23,7 +23,7 @@
 #include <iostream>
 #include <thread>
 
-#include <../common/MessageQueue.h>
+#include <MessageQueue.h>
 #include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
 
 // libutils:
@@ -143,14 +143,14 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
   }
   virtual Return<void> benchmarkServiceWriteClientRead(uint32_t numIter) {
     if (time_data_) delete[] time_data_;
-    time_data_ = new int64_t[numIter];
+    time_data_ = new (std::nothrow) int64_t[numIter];
     std::thread(QueueWriter<kSynchronizedReadWrite>, fmsg_queue_outbox_,
                 time_data_, numIter).detach();
     return Void();
   }
 
   virtual Return<bool> requestWrite(int count) {
-    uint8_t* data = new uint8_t[count];
+    uint8_t* data = new (std::nothrow) uint8_t[count];
     for (int i = 0; i < count; i++) {
       data[i] = i;
     }
@@ -160,7 +160,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
   }
 
   virtual Return<bool> requestRead(int count) {
-    uint8_t* data = new uint8_t[count];
+    uint8_t* data = new (std::nothrow) uint8_t[count];
     bool result = fmsg_queue_inbox_->read(data, count);
     delete[] data;
     return result;
@@ -197,7 +197,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
   virtual Return<void> configureClientOutboxSyncReadWrite(
       IBenchmarkMsgQ::configureClientOutboxSyncReadWrite_cb callback) {
     static constexpr size_t kNumElementsInQueue = 16 * 1024;
-    fmsg_queue_inbox_ = new android::hardware::MessageQueue<uint8_t,
+    fmsg_queue_inbox_ = new (std::nothrow) android::hardware::MessageQueue<uint8_t,
                       kSynchronizedReadWrite>(kNumElementsInQueue);
     if ((fmsg_queue_inbox_ == nullptr) ||
         (fmsg_queue_inbox_->isValid() == false)) {
@@ -217,7 +217,7 @@ class BenchmarkMsgQ : public IBenchmarkMsgQ {
       IBenchmarkMsgQ::configureClientInboxSyncReadWrite_cb callback) {
     static constexpr size_t kNumElementsInQueue = 16 * 1024;
     fmsg_queue_outbox_ =
-        new android::hardware::MessageQueue<uint8_t, kSynchronizedReadWrite>(
+        new (std::nothrow) android::hardware::MessageQueue<uint8_t, kSynchronizedReadWrite>(
             kNumElementsInQueue);
     if (fmsg_queue_outbox_ == nullptr) {
       callback(false /* ret */, android::hardware::MQDescriptorSync(
