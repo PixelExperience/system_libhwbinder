@@ -15,7 +15,6 @@
 */
 
 #include <android-base/logging.h>
-#include <cutils/ashmem.h>
 
 #include <gtest/gtest.h>
 #include <utils/StrongPointer.h>
@@ -23,7 +22,7 @@
 #include <iostream>
 
 #include <android/hardware/benchmarks/msgq/1.0/IBenchmarkMsgQ.h>
-#include "../common/MessageQueue.h"
+#include <MessageQueue.h>
 
 // libutils:
 using android::OK;
@@ -81,7 +80,7 @@ class MQTestClient : public ::testing::Test {
     service->configureClientInboxSyncReadWrite([this](
         bool ret, const MQDescriptorSync& in) {
       ASSERT_TRUE(ret);
-      fmsg_queue_inbox_ = new MessageQueue<uint8_t, kSynchronizedReadWrite>(in);
+      fmsg_queue_inbox_ = new (std::nothrow) MessageQueue<uint8_t, kSynchronizedReadWrite>(in);
     });
 
     ASSERT_TRUE(fmsg_queue_inbox_ != nullptr);
@@ -92,7 +91,7 @@ class MQTestClient : public ::testing::Test {
     service->configureClientOutboxSyncReadWrite([this](
         bool ret, const MQDescriptorSync& out) {
      ASSERT_TRUE(ret);
-      fmsg_queue_outbox_ = new MessageQueue<uint8_t, kSynchronizedReadWrite>(out);
+      fmsg_queue_outbox_ = new (std::nothrow) MessageQueue<uint8_t, kSynchronizedReadWrite>(out);
     });
 
     ASSERT_TRUE(fmsg_queue_outbox_ != nullptr);
@@ -112,7 +111,7 @@ class MQTestClient : public ::testing::Test {
  * average time taken for the cycle is measured.
  */
 TEST_F(MQTestClient, BenchMarkMeasurePingPongTransfer) {
-  uint8_t* data = new uint8_t[kPacketSize64];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize64];
   ASSERT_TRUE(data != nullptr);
   int64_t accumulated_time = 0;
   size_t num_round_trips = 0;
@@ -147,7 +146,7 @@ TEST_F(MQTestClient, BenchMarkMeasurePingPongTransfer) {
  * Measure the average time taken to read 64 bytes from the queue.
  */
 TEST_F(MQTestClient, BenchMarkMeasureRead64Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize64];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize64];
   ASSERT_TRUE(data != nullptr);
 
   uint32_t num_loops = kQueueSize / kPacketSize64;
@@ -178,7 +177,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead64Bytes) {
  * Measure the average time taken to read 128 bytes.
  */
 TEST_F(MQTestClient, BenchMarkMeasureRead128Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize128];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize128];
   ASSERT_TRUE(data != nullptr);
 
   uint32_t num_loops = kQueueSize / kPacketSize128;
@@ -210,7 +209,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead128Bytes) {
  * Measure the average time taken to read 256 bytes from the queue.
  */
 TEST_F(MQTestClient, BenchMarkMeasureRead256Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize256];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize256];
   ASSERT_TRUE(data != nullptr);
   uint32_t num_loops = kQueueSize / kPacketSize256;
   uint64_t accumulated_time = 0;
@@ -240,7 +239,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead256Bytes) {
  * Measure the average time taken to read 512 bytes from the queue.
  */
 TEST_F(MQTestClient, BenchMarkMeasureRead512Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize512];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize512];
   ASSERT_TRUE(data != nullptr);
   uint32_t num_loops = kQueueSize / kPacketSize512;
   uint64_t accumulated_time = 0;
@@ -270,7 +269,7 @@ TEST_F(MQTestClient, BenchMarkMeasureRead512Bytes) {
  * Measure the average time taken to write 64 bytes into the queue.
  */
 TEST_F(MQTestClient, BenchMarkMeasureWrite64Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize64];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize64];
   ASSERT_TRUE(data != nullptr);
   uint32_t num_loops = kQueueSize / kPacketSize64;
   uint64_t accumulated_time = 0;
@@ -301,7 +300,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite64Bytes) {
  * Measure the average time taken to write 128 bytes into the queue.
  */
 TEST_F(MQTestClient, BenchMarkMeasureWrite128Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize128];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize128];
   ASSERT_TRUE(data != nullptr);
   uint32_t num_loops = kQueueSize / kPacketSize128;
   uint64_t accumulated_time = 0;
@@ -331,7 +330,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite128Bytes) {
  * Measure the average time taken to write 256 bytes into the queue.
  */
 TEST_F(MQTestClient, BenchMarkMeasureWrite256Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize256];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize256];
   ASSERT_TRUE(data != nullptr);
   uint32_t num_loops = kQueueSize / kPacketSize256;
   uint64_t accumulated_time = 0;
@@ -361,7 +360,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite256Bytes) {
  * Measure the average time taken to write 512 bytes into the queue.
  */
 TEST_F(MQTestClient, BenchMarkMeasureWrite512Bytes) {
-  uint8_t* data = new uint8_t[kPacketSize512];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize512];
   ASSERT_TRUE(data != nullptr);
   uint32_t num_loops = kQueueSize / kPacketSize512;
   uint64_t accumulated_time = 0;
@@ -396,7 +395,7 @@ TEST_F(MQTestClient, BenchMarkMeasureWrite512Bytes) {
  * read delay is calculated.
  */
 TEST_F(MQTestClient, BenchMarkMeasureServiceWriteClientRead) {
-  uint8_t* data = new uint8_t[kPacketSize64];
+  uint8_t* data = new (std::nothrow) uint8_t[kPacketSize64];
   ASSERT_TRUE(data != nullptr);
   /*
    * This method causes the service to create a thread which writes

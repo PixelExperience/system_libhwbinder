@@ -14,17 +14,13 @@
 * limitations under the License.
 */
 
-#include <android-base/logging.h>
-#include <cutils/ashmem.h>
 #include <gtest/gtest.h>
 #ifndef GTEST_IS_THREADSAFE
 #error "GTest did not detect pthread library."
 #endif
 
-#include <utils/StrongPointer.h>
-
+#include <MessageQueue.h>
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
-#include "../common/MessageQueue.h"
 
 // libutils:
 using android::OK;
@@ -67,9 +63,9 @@ class SynchronizedReadWriteClient : public ::testing::Test {
     mService->configureFmqSyncReadWrite([this](
         bool ret, const MQDescriptorSync& in) {
       ASSERT_TRUE(ret);
-      mQueue = new MessageQueue<uint16_t, kSynchronizedReadWrite>(in);
+      mQueue = new (std::nothrow) MessageQueue<uint16_t, kSynchronizedReadWrite>(in);
     });
-    ASSERT_TRUE(mQueue != nullptr);
+    ASSERT_NE(nullptr, mQueue);
     ASSERT_TRUE(mQueue->isValid());
     mNumMessagesMax = mQueue->getQuantumCount();
   }
@@ -92,9 +88,9 @@ class UnsynchronizedWriteClient : public ::testing::Test {
     mService->configureFmqUnsyncWrite(
         [this](bool ret, const MQDescriptorUnsync& in) {
           ASSERT_TRUE(ret);
-          mQueue = new MessageQueue<uint16_t, kUnsynchronizedWrite>(in);
+          mQueue = new (std::nothrow) MessageQueue<uint16_t, kUnsynchronizedWrite>(in);
         });
-    ASSERT_TRUE(mQueue != nullptr);
+    ASSERT_NE(nullptr, mQueue);
     ASSERT_TRUE(mQueue->isValid());
     mNumMessagesMax = mQueue->getQuantumCount();
   }
@@ -117,13 +113,13 @@ bool verifyData(uint16_t* data, size_t count) {
  * to the FMQ. Read and verify data.
  */
 TEST_F(SynchronizedReadWriteClient, SmallInputReaderTest1) {
-  const size_t data_len = 16;
-  ASSERT_TRUE(data_len <= mNumMessagesMax);
-  bool ret = mService->requestWriteFmqSync(data_len);
+  const size_t dataLen = 16;
+  ASSERT_LE(dataLen, mNumMessagesMax);
+  bool ret = mService->requestWriteFmqSync(dataLen);
   ASSERT_TRUE(ret);
-  uint16_t read_data[data_len] = {};
-  ASSERT_TRUE(mQueue->read(read_data, data_len));
-  ASSERT_TRUE(verifyData(read_data, data_len));
+  uint16_t read_data[dataLen] = {};
+  ASSERT_TRUE(mQueue->read(read_data, dataLen));
+  ASSERT_TRUE(verifyData(read_data, dataLen));
 }
 
 /*
@@ -131,27 +127,27 @@ TEST_F(SynchronizedReadWriteClient, SmallInputReaderTest1) {
  * mService to read and verify that the write was succesful.
  */
 TEST_F(SynchronizedReadWriteClient, SmallInputWriterTest1) {
-  const size_t data_len = 16;
-  ASSERT_TRUE(data_len <= mNumMessagesMax);
-  size_t original_count = mQueue->availableToWrite();
-  uint16_t data[data_len];
-  for (size_t i = 0; i < data_len; i++) {
+  const size_t dataLen = 16;
+  ASSERT_LE(dataLen, mNumMessagesMax);
+  size_t originalCount = mQueue->availableToWrite();
+  uint16_t data[dataLen];
+  for (size_t i = 0; i < dataLen; i++) {
     data[i] = i;
   }
-  ASSERT_TRUE(mQueue->write(data, data_len));
-  bool ret = mService->requestReadFmqSync(data_len);
+  ASSERT_TRUE(mQueue->write(data, dataLen));
+  bool ret = mService->requestReadFmqSync(dataLen);
   ASSERT_TRUE(ret);
-  size_t available_count = mQueue->availableToWrite();
-  ASSERT_EQ(original_count, available_count);
+  size_t availableCount = mQueue->availableToWrite();
+  ASSERT_EQ(originalCount, availableCount);
 }
 
 /*
  * Verify that the FMQ is empty and read fails when it is empty.
  */
 TEST_F(SynchronizedReadWriteClient, ReadWhenEmpty) {
-  ASSERT_TRUE(mQueue->availableToRead() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToRead());
   const size_t numMessages = 2;
-  ASSERT_TRUE(numMessages <= mNumMessagesMax);
+  ASSERT_LE(numMessages, mNumMessagesMax);
   uint16_t read_data[numMessages];
   ASSERT_FALSE(mQueue->read(read_data, numMessages));
 }
@@ -171,7 +167,7 @@ TEST_F(SynchronizedReadWriteClient, WriteWhenFull) {
     data[i] = i;
   }
   ASSERT_TRUE(mQueue->write(&data[0], mNumMessagesMax));
-  ASSERT_TRUE(mQueue->availableToWrite() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToWrite());
   ASSERT_FALSE(mQueue->write(&data[0], 1));
   bool ret = mService->requestReadFmqSync(mNumMessagesMax);
   ASSERT_TRUE(ret);
@@ -196,13 +192,13 @@ TEST_F(SynchronizedReadWriteClient, LargeInputTest1) {
  * still returns 0 and verify that attempt to read fails.
  */
 TEST_F(SynchronizedReadWriteClient, LargeInputTest2) {
-  ASSERT_TRUE(mQueue->availableToRead() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToRead());
   const size_t numMessages = 2048;
-  ASSERT_TRUE(numMessages > mNumMessagesMax);
+  ASSERT_GT(numMessages, mNumMessagesMax);
   bool ret = mService->requestWriteFmqSync(numMessages);
   ASSERT_FALSE(ret);
   uint16_t read_data;
-  ASSERT_TRUE(mQueue->availableToRead() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToRead());
   ASSERT_FALSE(mQueue->read(&read_data, 1));
 }
 
@@ -221,7 +217,7 @@ TEST_F(SynchronizedReadWriteClient, LargeInputTest3) {
   }
 
   ASSERT_TRUE(mQueue->write(&data[0], mNumMessagesMax));
-  ASSERT_TRUE(mQueue->availableToWrite() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToWrite());
   ASSERT_FALSE(mQueue->write(&data[0], 1));
 
   bool ret = mService->requestReadFmqSync(mNumMessagesMax);
@@ -236,10 +232,10 @@ TEST_F(SynchronizedReadWriteClient, MultipleRead) {
   const size_t chunkSize = 100;
   const size_t chunkNum = 5;
   const size_t numMessages = chunkSize * chunkNum;
-  ASSERT_TRUE(numMessages <= mNumMessagesMax);
+  ASSERT_LE(numMessages, mNumMessagesMax);
   size_t availableToRead = mQueue->availableToRead();
-  size_t expected_count = 0;
-  ASSERT_EQ(availableToRead, expected_count);
+  size_t expectedCount = 0;
+  ASSERT_EQ(expectedCount, availableToRead);
   bool ret = mService->requestWriteFmqSync(numMessages);
   ASSERT_TRUE(ret);
   uint16_t read_data[numMessages] = {};
@@ -257,7 +253,7 @@ TEST_F(SynchronizedReadWriteClient, MultipleWrite) {
   const size_t chunkSize = 100;
   const size_t chunkNum = 5;
   const size_t numMessages = chunkSize * chunkNum;
-  ASSERT_TRUE(numMessages <= mNumMessagesMax);
+  ASSERT_LE(numMessages, mNumMessagesMax);
   uint16_t data[numMessages];
   for (size_t i = 0; i < numMessages; i++) {
     data[i] = i;
@@ -293,13 +289,13 @@ TEST_F(SynchronizedReadWriteClient, ReadWriteWrapAround) {
  * to the FMQ. Read and verify data.
  */
 TEST_F(UnsynchronizedWriteClient, SmallInputReaderTest1) {
-  const size_t data_len = 16;
-  ASSERT_TRUE(data_len <= mNumMessagesMax);
-  bool ret = mService->requestWriteFmqUnsync(data_len);
+  const size_t dataLen = 16;
+  ASSERT_LE(dataLen, mNumMessagesMax);
+  bool ret = mService->requestWriteFmqUnsync(dataLen);
   ASSERT_TRUE(ret);
-  uint16_t read_data[data_len] = {};
-  ASSERT_TRUE(mQueue->read(read_data, data_len));
-  ASSERT_TRUE(verifyData(read_data, data_len));
+  uint16_t read_data[dataLen] = {};
+  ASSERT_TRUE(mQueue->read(read_data, dataLen));
+  ASSERT_TRUE(verifyData(read_data, dataLen));
 }
 
 /*
@@ -307,15 +303,15 @@ TEST_F(UnsynchronizedWriteClient, SmallInputReaderTest1) {
  * mService to read and verify that the write was succesful.
  */
 TEST_F(UnsynchronizedWriteClient, SmallInputWriterTest1) {
-  const size_t data_len = 16;
-  ASSERT_TRUE(data_len <= mNumMessagesMax);
-  size_t original_count = mQueue->availableToWrite();
-  uint16_t data[data_len];
-  for (size_t i = 0; i < data_len; i++) {
+  const size_t dataLen = 16;
+  ASSERT_LE(dataLen, mNumMessagesMax);
+  size_t originalCount = mQueue->availableToWrite();
+  uint16_t data[dataLen];
+  for (size_t i = 0; i < dataLen; i++) {
     data[i] = i;
   }
-  ASSERT_TRUE(mQueue->write(data, data_len));
-  bool ret = mService->requestReadFmqUnsync(data_len);
+  ASSERT_TRUE(mQueue->write(data, dataLen));
+  bool ret = mService->requestReadFmqUnsync(dataLen);
   ASSERT_TRUE(ret);
 }
 
@@ -323,9 +319,9 @@ TEST_F(UnsynchronizedWriteClient, SmallInputWriterTest1) {
  * Verify that the FMQ is empty and read fails when it is empty.
  */
 TEST_F(UnsynchronizedWriteClient, ReadWhenEmpty) {
-  ASSERT_TRUE(mQueue->availableToRead() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToRead());
   const size_t numMessages = 2;
-  ASSERT_TRUE(numMessages <= mNumMessagesMax);
+  ASSERT_LE(numMessages, mNumMessagesMax);
   uint16_t read_data[numMessages];
   ASSERT_FALSE(mQueue->read(read_data, numMessages));
 }
@@ -345,7 +341,7 @@ TEST_F(UnsynchronizedWriteClient, WriteWhenFull) {
     data[i] = i;
   }
   ASSERT_TRUE(mQueue->write(&data[0], mNumMessagesMax));
-  ASSERT_TRUE(mQueue->availableToWrite() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToWrite());
   ASSERT_TRUE(mQueue->write(&data[0], 1));
   bool ret = mService->requestReadFmqUnsync(mNumMessagesMax);
   ASSERT_FALSE(ret);
@@ -370,13 +366,13 @@ TEST_F(UnsynchronizedWriteClient, LargeInputTest1) {
  * still returns 0 and verify that attempt to read fails.
  */
 TEST_F(UnsynchronizedWriteClient, LargeInputTest2) {
-  ASSERT_TRUE(mQueue->availableToRead() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToRead());
   const size_t numMessages = mNumMessagesMax + 1;
   bool ret = mService->requestWriteFmqUnsync(numMessages);
   ASSERT_FALSE(ret);
-  uint16_t read_data;
-  ASSERT_TRUE(mQueue->availableToRead() == 0);
-  ASSERT_FALSE(mQueue->read(&read_data, 1));
+  uint16_t readData;
+  ASSERT_EQ(0UL, mQueue->availableToRead());
+  ASSERT_FALSE(mQueue->read(&readData, 1));
 }
 
 /*
@@ -395,7 +391,7 @@ TEST_F(UnsynchronizedWriteClient, LargeInputTest3) {
   }
 
   ASSERT_TRUE(mQueue->write(&data[0], mNumMessagesMax));
-  ASSERT_TRUE(mQueue->availableToWrite() == 0);
+  ASSERT_EQ(0UL, mQueue->availableToWrite());
   ASSERT_TRUE(mQueue->write(&data[0], 1));
 
   bool ret = mService->requestReadFmqUnsync(mNumMessagesMax);
@@ -414,10 +410,10 @@ TEST_F(UnsynchronizedWriteClient, MultipleRead) {
   const size_t chunkSize = 100;
   const size_t chunkNum = 5;
   const size_t numMessages = chunkSize * chunkNum;
-  ASSERT_TRUE(numMessages <= mNumMessagesMax);
+  ASSERT_LE(numMessages, mNumMessagesMax);
   size_t availableToRead = mQueue->availableToRead();
-  size_t expected_count = 0;
-  ASSERT_EQ(availableToRead, expected_count);
+  size_t expectedCount = 0;
+  ASSERT_EQ(expectedCount, availableToRead);
   bool ret = mService->requestWriteFmqUnsync(numMessages);
   ASSERT_TRUE(ret);
   uint16_t read_data[numMessages] = {};
@@ -435,7 +431,7 @@ TEST_F(UnsynchronizedWriteClient, MultipleWrite) {
   const size_t chunkSize = 100;
   const size_t chunkNum = 5;
   const size_t numMessages = chunkSize * chunkNum;
-  ASSERT_TRUE(numMessages <= mNumMessagesMax);
+  ASSERT_LE(numMessages, mNumMessagesMax);
   uint16_t data[numMessages];
   for (size_t i = 0; i < numMessages; i++) {
     data[i] = i;
@@ -475,28 +471,28 @@ TEST_F(UnsynchronizedWriteClient, ReadWriteWrapAround) {
 TEST_F(UnsynchronizedWriteClient, SmallInputMultipleReaderTest) {
   auto desc = mQueue->getDesc();
   std::unique_ptr<MessageQueue<uint16_t, kUnsynchronizedWrite>> mQueue2(
-      new MessageQueue<uint16_t, kUnsynchronizedWrite>(*desc));
-  ASSERT_NE(mQueue2.get(), nullptr);
+      new (std::nothrow) MessageQueue<uint16_t, kUnsynchronizedWrite>(*desc));
+  ASSERT_NE(nullptr, mQueue2.get());
 
-  const size_t data_len = 16;
-  ASSERT_TRUE(data_len <= mNumMessagesMax);
+  const size_t dataLen = 16;
+  ASSERT_LE(dataLen, mNumMessagesMax);
 
-  bool ret = mService->requestWriteFmqUnsync(data_len);
+  bool ret = mService->requestWriteFmqUnsync(dataLen);
   ASSERT_TRUE(ret);
 
   pid_t pid;
   if ((pid = fork()) == 0) {
     /* child process */
-    uint16_t read_data[data_len] = {};
-    ASSERT_TRUE(mQueue2->read(read_data, data_len));
-    ASSERT_TRUE(verifyData(read_data, data_len));
+    uint16_t read_data[dataLen] = {};
+    ASSERT_TRUE(mQueue2->read(read_data, dataLen));
+    ASSERT_TRUE(verifyData(read_data, dataLen));
     exit(0);
   } else {
     ASSERT_GT(pid,
               0 /* parent should see PID greater than 0 for a good fork */);
-    uint16_t read_data[data_len] = {};
-    ASSERT_TRUE(mQueue->read(read_data, data_len));
-    ASSERT_TRUE(verifyData(read_data, data_len));
+    uint16_t read_data[dataLen] = {};
+    ASSERT_TRUE(mQueue->read(read_data, dataLen));
+    ASSERT_TRUE(verifyData(read_data, dataLen));
   }
 }
 
@@ -508,8 +504,8 @@ TEST_F(UnsynchronizedWriteClient, SmallInputMultipleReaderTest) {
 TEST_F(UnsynchronizedWriteClient, MultipleReadersAfterOverflow1) {
   auto desc = mQueue->getDesc();
   std::unique_ptr<MessageQueue<uint16_t, kUnsynchronizedWrite>> mQueue2(
-      new MessageQueue<uint16_t, kUnsynchronizedWrite>(*desc));
-  ASSERT_NE(mQueue2.get(), nullptr);
+      new (std::nothrow) MessageQueue<uint16_t, kUnsynchronizedWrite>(*desc));
+  ASSERT_NE(nullptr, mQueue2.get());
 
   bool ret = mService->requestWriteFmqUnsync(mNumMessagesMax);
   ASSERT_TRUE(ret);
@@ -539,26 +535,26 @@ TEST_F(UnsynchronizedWriteClient, MultipleReadersAfterOverflow1) {
 TEST_F(UnsynchronizedWriteClient, MultipleReadersAfterOverflow2) {
   auto desc = mQueue->getDesc();
   std::unique_ptr<MessageQueue<uint16_t, kUnsynchronizedWrite>> mQueue2(
-      new MessageQueue<uint16_t, kUnsynchronizedWrite>(*desc));
-  ASSERT_NE(mQueue2.get(), nullptr);
+      new (std::nothrow) MessageQueue<uint16_t, kUnsynchronizedWrite>(*desc));
+  ASSERT_NE(nullptr, mQueue2.get());
 
   bool ret = mService->requestWriteFmqUnsync(mNumMessagesMax);
   ASSERT_TRUE(ret);
   ret = mService->requestWriteFmqUnsync(1);
   ASSERT_TRUE(ret);
 
-  const size_t data_len = 16;
-  ASSERT_TRUE(data_len <= mNumMessagesMax);
+  const size_t dataLen = 16;
+  ASSERT_LT(dataLen, mNumMessagesMax);
 
   pid_t pid;
   if ((pid = fork()) == 0) {
     /* child process */
     std::vector<uint16_t> read_data(mNumMessagesMax);
     ASSERT_FALSE(mQueue2->read(&read_data[0], mNumMessagesMax));
-    ret = mService->requestWriteFmqUnsync(data_len);
+    ret = mService->requestWriteFmqUnsync(dataLen);
     ASSERT_TRUE(ret);
-    ASSERT_TRUE(mQueue2->read(&read_data[0], data_len));
-    ASSERT_TRUE(verifyData(&read_data[0], data_len));
+    ASSERT_TRUE(mQueue2->read(&read_data[0], dataLen));
+    ASSERT_TRUE(verifyData(&read_data[0], dataLen));
     exit(0);
   } else {
     ASSERT_GT(pid, 0/* parent should see PID greater than 0 for a good fork */);
@@ -573,7 +569,7 @@ TEST_F(UnsynchronizedWriteClient, MultipleReadersAfterOverflow2) {
      */
     ASSERT_EQ(pid, waitpid(pid, &status, 0 /* options */));
 
-    ASSERT_TRUE(mQueue->read(&read_data[0], data_len));
-    ASSERT_TRUE(verifyData(&read_data[0], data_len));
+    ASSERT_TRUE(mQueue->read(&read_data[0], dataLen));
+    ASSERT_TRUE(verifyData(&read_data[0], dataLen));
   }
 }

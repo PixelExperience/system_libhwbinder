@@ -14,14 +14,13 @@
 * limitations under the License.
 */
 
-#include <../common/MessageQueue.h>
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
 #include <hidl/ServiceManagement.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/ProcessState.h>
 #include <utils/Looper.h>
-#include <utils/StrongPointer.h>
+#include <MessageQueue.h>
 
 // libutils:
 using android::Looper;
@@ -114,7 +113,7 @@ class TestMsgQ : public ITestMsgQ {
       ITestMsgQ::configureFmqSyncReadWrite_cb callback) {
     static constexpr size_t kNumElementsInQueue = 1024;
     fmsg_queue_synchronized =
-        new MessageQueue<uint16_t, kSynchronizedReadWrite>(kNumElementsInQueue);
+        new (std::nothrow) MessageQueue<uint16_t, kSynchronizedReadWrite>(kNumElementsInQueue);
     if ((fmsg_queue_synchronized == nullptr) || (fmsg_queue_synchronized->isValid() == false)) {
       callback(false /* ret */, MQDescriptorSync(
                    std::vector<android::hardware::GrantorDescriptor>(),
@@ -129,7 +128,7 @@ class TestMsgQ : public ITestMsgQ {
       ITestMsgQ::configureFmqUnsyncWrite_cb callback) {
     static constexpr size_t kNumElementsInQueue = 1024;
     fmsg_queue_unsynchronized =
-        new MessageQueue<uint16_t, kUnsynchronizedWrite>(
+        new (std::nothrow) MessageQueue<uint16_t, kUnsynchronizedWrite>(
             kNumElementsInQueue);
     if ((fmsg_queue_unsynchronized == nullptr) ||
         (fmsg_queue_unsynchronized->isValid() == false)) {
