@@ -20,7 +20,16 @@ LOCAL_MODULE := mq_test_service
 LOCAL_SRC_FILES := \
     msgq_test_service.cpp
 
-LOCAL_SHARED_LIBRARIES := libhidlbase libhidltransport libhwbinder libbase liblog libcutils libutils libbase
+LOCAL_SHARED_LIBRARIES := \
+    libhidlbase \
+    libhidltransport \
+    libhwbinder \
+    libbase \
+    liblog \
+    libcutils \
+    libutils \
+    libfmq
+
 LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0
 include $(BUILD_EXECUTABLE)
 
@@ -28,8 +37,16 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     msgq_test_client.cpp
 
-LOCAL_SHARED_LIBRARIES := libhidlbase libhidltransport libhwbinder libbase libcutils libutils libbase
-LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0
+LOCAL_SHARED_LIBRARIES := \
+    libhidlbase \
+    libhidltransport  \
+    libhwbinder \
+    libcutils \
+    libutils \
+    libbase \
+    libfmq
+
+LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0 libfmq
 LOCAL_MODULE := mq_test_client
 include $(BUILD_NATIVE_TEST)
 
@@ -37,7 +54,12 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     mq_test.cpp
 LOCAL_STATIC_LIBRARIES := libutils libcutils liblog
-LOCAL_SHARED_LIBRARIES := libhidlbase libhidltransport libhwbinder libbase
+LOCAL_SHARED_LIBRARIES := \
+    libhidlbase \
+    libhidltransport \
+    libhwbinder \
+    libbase \
+    libfmq
 LOCAL_MODULE := mq_test
 include $(BUILD_NATIVE_TEST)
 
