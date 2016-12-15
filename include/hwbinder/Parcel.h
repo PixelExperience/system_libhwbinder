@@ -264,12 +264,6 @@ public:
     status_t            readNullableStrongBinder(sp<IBinder>* val) const;
     wp<IBinder>         readWeakBinder() const;
 
-    template<typename T>
-    status_t            readStrongBinder(sp<T>* val) const;
-
-    template<typename T>
-    status_t            readNullableStrongBinder(sp<T>* val) const;
-
     status_t            readStrongBinderVector(std::unique_ptr<std::vector<sp<IBinder>>>* val) const;
     status_t            readStrongBinderVector(std::vector<sp<IBinder>>* val) const;
 
@@ -516,36 +510,6 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-
-template<typename T>
-status_t Parcel::readStrongBinder(sp<T>* val) const {
-    sp<IBinder> tmp;
-    status_t ret = readStrongBinder(&tmp);
-
-    if (ret == OK) {
-        *val = interface_cast<T>(tmp);
-
-        if (val->get() == nullptr) {
-            return UNKNOWN_ERROR;
-        }
-    }
-
-    return ret;
-}
-
-template<typename T>
-status_t Parcel::readNullableStrongBinder(sp<T>* val) const {
-    sp<IBinder> tmp;
-    status_t ret = readNullableStrongBinder(&tmp);
-
-    if (ret == OK) {
-        *val = interface_cast<T>(tmp);
-
-        if (val->get() == nullptr) {
-            return UNKNOWN_ERROR;
-        }
-    }
-}
 
 template<typename T, typename U>
 status_t Parcel::unsafeReadTypedVector(
