@@ -15,8 +15,8 @@
  */
 #define LOG_TAG "HwbinderThroughputTest"
 
+#include <android/log.h>
 #include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
-#include <hwbinder/IPCThreadState.h>
 #include <hidl/HidlSupport.h>
 
 #include <string>
@@ -180,15 +180,12 @@ void service_fx(const string &serviceName, Pipe p) {
     sp<IBenchmark> server = IBenchmark::getService(serviceName, true);
     ALOGD("Registering %s", serviceName.c_str());
     status_t status = server->registerAsService(serviceName);
-
     if (status != ::android::OK) {
         ALOGE("Failed to register service %s", serviceName.c_str());
         exit(EXIT_FAILURE);
     }
 
     ALOGD("Starting %s", serviceName.c_str());
-    ProcessState::self()->setThreadPoolMaxThreadCount(0);
-    ProcessState::self()->startThreadPool();
 
     // Signal service started to master and wait to exit.
     p.signal();
