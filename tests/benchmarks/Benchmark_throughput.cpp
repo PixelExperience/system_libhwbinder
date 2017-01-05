@@ -232,12 +232,11 @@ void worker_fx(
         int target = rand() % service_count;
 
         start = chrono::high_resolution_clock::now();
-        Status status = workers[target]->sendVec(data_vec, [&](const auto &) {})
-                .getStatus();
-        if (!status.isOk()) {
+        Return<void> ret = workers[target]->sendVec(data_vec, [&](const auto &) {});
+        if (!ret.isOk()) {
             cout << "thread " << num << " failed status: "
-                << status.exceptionCode() << endl;
-            exit (EXIT_FAILURE);
+                << ret.description() << endl;
+            exit(EXIT_FAILURE);
         }
         end = chrono::high_resolution_clock::now();
 
