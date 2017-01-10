@@ -103,8 +103,19 @@ enum {
     BLOB_ASHMEM_MUTABLE = 2,
 };
 
-void acquire_object(const sp<ProcessState>& proc,
-    const flat_binder_object& obj, const void* who, size_t* outAshmemSize)
+void acquire_fd_object(const binder_fd_object& obj, size_t* outAshmemSize)
+{
+    if ((obj.cookie != 0) && (outAshmemSize != NULL) && ashmem_valid(obj.fd)) {
+        // If we own an ashmem fd, keep track of how much memory it refers to.
+        int size = ashmem_get_size_region(obj.fd);
+        if (size > 0) {
+            *outAshmemSize += size;
+        }
+    }
+}
+
+void acquire_binder_object(const sp<ProcessState>& proc,
+    const flat_binder_object& obj, const void* who)
 {
     switch (obj.type) {
         case BINDER_TYPE_BINDER:
@@ -130,29 +141,28 @@ void acquire_object(const sp<ProcessState>& proc,
             if (b != NULL) b.get_refs()->incWeak(who);
             return;
         }
-        case BINDER_TYPE_FD: {
-            if ((obj.cookie != 0) && (outAshmemSize != NULL) && ashmem_valid(obj.handle)) {
-                // If we own an ashmem fd, keep track of how much memory it refers to.
-                int size = ashmem_get_size_region(obj.handle);
-                if (size > 0) {
-                    *outAshmemSize += size;
-                }
-            }
-            return;
-        }
-        case BINDER_TYPE_PTR:
-        case BINDER_TYPE_FDA: {
-            return;
-        }
     }
 
     ALOGD("Invalid object type 0x%08x", obj.type);
 }
 
-void acquire_object(const sp<ProcessState>& proc,
-    const flat_binder_object& obj, const void* who)
-{
-    acquire_object(proc, obj, who, NULL);
+void acquire_object(const sp<ProcessState>& proc, const binder_object_header& obj,
+        const void *who, size_t* outAshmemSize) {
+    switch (obj.type) {
+        case BINDER_TYPE_BINDER:
+        case BINDER_TYPE_WEAK_BINDER:
+        case BINDER_TYPE_HANDLE:
+        case BINDER_TYPE_WEAK_HANDLE: {
+            const flat_binder_object& fbo = reinterpret_cast<const flat_binder_object&>(obj);
+            acquire_binder_object(proc, fbo, who);
+            break;
+        }
+        case BINDER_TYPE_FD: {
+            const binder_fd_object& fdo = reinterpret_cast<const binder_fd_object&>(obj);
+            acquire_fd_object(fdo, outAshmemSize);
+            break;
+        }
+    }
 }
 
 static void release_object(const sp<ProcessState>& proc,
@@ -217,7 +227,7 @@ void release_object(const sp<ProcessState>& proc,
 inline static status_t finish_flatten_binder(
     const sp<IBinder>& /*binder*/, const flat_binder_object& flat, Parcel* out)
 {
-    return out->writeObject(flat, false /* nullMetaData */);
+    return out->writeObject(flat);
 }
 
 status_t flatten_binder(const sp<ProcessState>& /*proc*/,
@@ -311,7 +321,7 @@ inline static status_t finish_unflatten_binder(
 status_t unflatten_binder(const sp<ProcessState>& proc,
     const Parcel& in, sp<IBinder>* out)
 {
-    const flat_binder_object* flat = in.readObject<flat_binder_object>(false /* nullMetaData */);
+    const flat_binder_object* flat = in.readObject<flat_binder_object>();
 
     if (flat) {
         switch (flat->type) {
@@ -330,7 +340,7 @@ status_t unflatten_binder(const sp<ProcessState>& proc,
 status_t unflatten_binder(const sp<ProcessState>& proc,
     const Parcel& in, wp<IBinder>* out)
 {
-    const flat_binder_object* flat = in.readObject<flat_binder_object>(false /* nullMetaData */);
+    const flat_binder_object* flat = in.readObject<flat_binder_object>();
 
     if (flat) {
         switch (flat->type) {
@@ -366,6 +376,7 @@ static inline bool isBuffer(const binder_buffer_object& obj) {
     return obj.hdr.type == BINDER_TYPE_PTR
         && (obj.flags & BINDER_BUFFER_REF) == 0;
 }
+
 // ---------------------------------------------------------------------------
 
 Parcel::Parcel()
@@ -556,16 +567,16 @@ status_t Parcel::appendFrom(const Parcel *parcel, size_t offset, size_t len)
             mObjects[idx++] = off;
             mObjectsSize++;
 
-            flat_binder_object* flat
-                = reinterpret_cast<flat_binder_object*>(mData + off);
-            acquire_object(proc, *flat, this, &mOpenAshmemSize);
+            binder_object_header* hdr = reinterpret_cast<binder_object_header*>(mData + off);
+            acquire_object(proc, *hdr, this, &mOpenAshmemSize);
 
-            if (flat->type == BINDER_TYPE_FD) {
+            if (hdr->type == BINDER_TYPE_FD) {
+                binder_fd_object *fdo = reinterpret_cast<binder_fd_object*>(hdr);
                 // If this is a file descriptor, we need to dup it so the
                 // new Parcel now owns its own fd, and can declare that we
                 // officially know we have fds.
-                flat->handle = dup(flat->handle);
-                flat->cookie = 1;
+                fdo->fd = dup(fdo->fd);
+                fdo->cookie = 1;
                 mHasFds = mFdsKnown = true;
                 if (!mAllowFds) {
                     err = FDS_NOT_ALLOWED;
@@ -1159,13 +1170,13 @@ status_t Parcel::writeNativeHandle(const native_handle* handle)
 
 status_t Parcel::writeFileDescriptor(int fd, bool takeOwnership)
 {
-    flat_binder_object obj;
-    obj.type = BINDER_TYPE_FD;
-    obj.flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
-    obj.binder = 0; /* Don't pass uninitialized stack data to a remote process */
-    obj.handle = fd;
+    binder_fd_object obj;
+    obj.hdr.type = BINDER_TYPE_FD;
+    obj.pad_flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
+    obj.pad_binder = 0;
+    obj.fd = fd;
     obj.cookie = takeOwnership ? 1 : 0;
-    return writeObject(obj, true /* nullMetaData */);
+    return writeObject(obj);
 }
 
 status_t Parcel::writeDupFileDescriptor(int fd)
@@ -1258,7 +1269,7 @@ status_t Parcel::writeDupImmutableBlobFileDescriptor(int fd)
 }
 
 template <typename T>
-status_t Parcel::writeObject(const T& val, bool nullMetaData)
+status_t Parcel::writeObject(const T& val)
 {
     const bool enoughData = (mDataPos+sizeof(val)) <= mDataCapacity;
     const bool enoughObjects = mObjectsSize < mObjectsCapacity;
@@ -1266,23 +1277,47 @@ status_t Parcel::writeObject(const T& val, bool nullMetaData)
 restart_write:
         *reinterpret_cast<T*>(mData+mDataPos) = val;
 
-        const flat_binder_object* fbo = reinterpret_cast<flat_binder_object*>(mData+mDataPos);
-        // remember if it's a file descriptor
-        if (fbo->type == BINDER_TYPE_FD) {
-            if (!mAllowFds) {
-                // fail before modifying our object index
-                return FDS_NOT_ALLOWED;
+        const binder_object_header* hdr = reinterpret_cast<binder_object_header*>(mData+mDataPos);
+        switch (hdr->type) {
+            case BINDER_TYPE_BINDER:
+            case BINDER_TYPE_WEAK_BINDER:
+            case BINDER_TYPE_HANDLE:
+            case BINDER_TYPE_WEAK_HANDLE: {
+                const flat_binder_object *fbo = reinterpret_cast<const flat_binder_object*>(hdr);
+                if (fbo->binder != 0) {
+                    mObjects[mObjectsSize++] = mDataPos;
+                    acquire_binder_object(ProcessState::self(), *fbo, this);
+                }
+                break;
             }
-            mHasFds = mFdsKnown = true;
+            case BINDER_TYPE_FD: {
+                const binder_fd_object *fd_obj = reinterpret_cast<const binder_fd_object*>(hdr);
+                // remember if it's a file descriptor
+                if (!mAllowFds) {
+                    // fail before modifying our object index
+                    return FDS_NOT_ALLOWED;
+                }
+                mHasFds = mFdsKnown = true;
+                mObjects[mObjectsSize++] = mDataPos;
+                acquire_fd_object(*fd_obj, &mOpenAshmemSize);
+                break;
+            }
+            case BINDER_TYPE_FDA:
+                mObjects[mObjectsSize++] = mDataPos;
+                break;
+            case BINDER_TYPE_PTR: {
+                const binder_buffer_object *buffer_obj = reinterpret_cast<
+                    const binder_buffer_object*>(hdr);
+                if ((void *)buffer_obj->buffer != nullptr) {
+                    mObjects[mObjectsSize++] = mDataPos;
+                }
+                break;
+            }
+            default: {
+                ALOGE("writeObject: unknown type %d", hdr->type);
+                break;
+            }
         }
-
-        // Need to write meta-data?
-        if (nullMetaData || fbo->binder != 0) {
-            mObjects[mObjectsSize] = mDataPos;
-            acquire_object(ProcessState::self(), *fbo, this, &mOpenAshmemSize);
-            mObjectsSize++;
-        }
-
         return finishWrite(sizeof(val));
     }
 
@@ -1302,14 +1337,10 @@ restart_write:
     goto restart_write;
 }
 
-template status_t Parcel::writeObject<flat_binder_object>(
-        const flat_binder_object& val, bool nullMetaData);
-
-template status_t Parcel::writeObject<binder_buffer_object>(
-        const binder_buffer_object& val, bool nullMetaData);
-
-template status_t Parcel::writeObject<binder_fd_array_object>(
-        const binder_fd_array_object& val, bool nullMetaData);
+template status_t Parcel::writeObject<flat_binder_object>(const flat_binder_object& val);
+template status_t Parcel::writeObject<binder_fd_object>(const binder_fd_object& val);
+template status_t Parcel::writeObject<binder_buffer_object>(const binder_buffer_object& val);
+template status_t Parcel::writeObject<binder_fd_array_object>(const binder_fd_array_object& val);
 
 
 // TODO merge duplicated code in writeEmbeddedBuffer, writeEmbeddedReference, and writeEmbeddedNullReference
@@ -1348,14 +1379,6 @@ bool Parcel::validateBufferParent(size_t parent_buffer_handle,
 status_t Parcel::writeEmbeddedBuffer(
         const void *buffer, size_t length, size_t *handle,
         size_t parent_buffer_handle, size_t parent_offset) {
-    return writeEmbeddedBufferWithFlags(buffer, length, handle, 0,
-            parent_buffer_handle, parent_offset);
-}
-
-status_t Parcel::writeEmbeddedBufferWithFlags(
-        const void *buffer, size_t length, size_t *handle, uint32_t flags,
-        size_t parent_buffer_handle, size_t parent_offset)
-{
     LOG_BUFFER("writeEmbeddedBuffer(%p, %zu, parent = (%zu, %zu)) -> %zu",
         buffer, length, parent_buffer_handle,
          parent_offset, mObjectsSize);
@@ -1363,7 +1386,7 @@ status_t Parcel::writeEmbeddedBufferWithFlags(
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.buffer = reinterpret_cast<binder_uintptr_t>(buffer);
     obj.length = length;
-    obj.flags = flags | BINDER_BUFFER_HAS_PARENT;
+    obj.flags = BINDER_BUFFER_HAS_PARENT;
     if(!validateBufferParent(parent_buffer_handle, parent_offset))
         return BAD_VALUE;
     obj.parent = parent_buffer_handle;
@@ -1372,16 +1395,10 @@ status_t Parcel::writeEmbeddedBufferWithFlags(
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
     }
-    return writeObject(obj, true /* nullMetaData */);
+    return writeObject(obj);
 }
 
 status_t Parcel::writeBuffer(const void *buffer, size_t length, size_t *handle)
-{
-    return writeBufferWithFlags(buffer, length, handle, 0);
-}
-
-status_t Parcel::writeBufferWithFlags(const void *buffer, size_t length,
-        size_t *handle, uint32_t flags)
 {
     LOG_BUFFER("writeBuffer(%p, %zu) -> %zu",
         buffer, length, mObjectsSize);
@@ -1389,12 +1406,12 @@ status_t Parcel::writeBufferWithFlags(const void *buffer, size_t length,
     obj.hdr.type = BINDER_TYPE_PTR;
     obj.buffer = reinterpret_cast<binder_uintptr_t>(buffer);
     obj.length = length;
-    obj.flags = flags;
+    obj.flags = 0;
     if (handle != nullptr) {
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
     }
-    return writeObject(obj, true /* nullMetaData */);
+    return writeObject(obj);
 }
 
 status_t Parcel::incrementNumReferences() {
@@ -1421,7 +1438,7 @@ status_t Parcel::writeReference(size_t *handle,
     if (handle != nullptr)
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
-    return writeObject(obj, true /* nullMetaData */);
+    return writeObject(obj);
 }
 
 /* Write an object that describes a pointer from parent to child.
@@ -1451,7 +1468,7 @@ status_t Parcel::writeEmbeddedReference(size_t *handle,
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
     }
-    return writeObject(obj, true /* nullMetaData */);
+    return writeObject(obj);
 }
 
 status_t Parcel::writeNullReference(size_t * handle) {
@@ -1461,11 +1478,11 @@ status_t Parcel::writeNullReference(size_t * handle) {
         return status;
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
-    obj.flags = BINDER_BUFFER_REF | BINDER_BUFFER_NULLPTR;
+    obj.flags = BINDER_BUFFER_REF;
     if (handle != nullptr)
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
-    return writeObject(obj, true /* nullMetaData */);
+    return writeObject(obj);
 }
 
 status_t Parcel::writeEmbeddedNullReference(size_t * handle,
@@ -1479,7 +1496,7 @@ status_t Parcel::writeEmbeddedNullReference(size_t * handle,
         return status;
     binder_buffer_object obj;
     obj.hdr.type = BINDER_TYPE_PTR;
-    obj.flags = BINDER_BUFFER_REF | BINDER_BUFFER_HAS_PARENT | BINDER_BUFFER_NULLPTR;
+    obj.flags = BINDER_BUFFER_REF | BINDER_BUFFER_HAS_PARENT;
     // parent_buffer_handle and parent_offset needs to be checked.
     if(!validateBufferParent(parent_buffer_handle, parent_offset))
         return BAD_VALUE;
@@ -1489,7 +1506,7 @@ status_t Parcel::writeEmbeddedNullReference(size_t * handle,
         // We use an index into mObjects as a handle
         *handle = mObjectsSize;
     }
-    return writeObject(obj, true /* nullMetaData */);
+    return writeObject(obj);
 }
 
 void Parcel::clearCache() const {
@@ -1573,12 +1590,11 @@ status_t Parcel::writeNativeHandleNoDup(const native_handle_t *handle)
     uint32_t flags = 0;
     if (handle == nullptr) {
         native_handle_size = 0;
-        flags |= BINDER_BUFFER_NULLPTR;
     } else {
         native_handle_size = sizeof(native_handle_t)
                 + handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
     }
-    status_t status = writeBufferWithFlags((void*) handle, native_handle_size, &buffer_handle, flags);
+    status_t status = writeBuffer((void*) handle, native_handle_size, &buffer_handle);
     if (status != OK) {
         return status;
     }
@@ -1588,7 +1604,7 @@ status_t Parcel::writeNativeHandleNoDup(const native_handle_t *handle)
         fd_array.num_fds = handle->numFds;
         fd_array.parent = buffer_handle;
         fd_array.parent_offset = offsetof(native_handle_t, data);
-        return writeObject(fd_array, true /* nullMetaData */);
+        return writeObject(fd_array);
     }
     return OK;
 }
@@ -1604,13 +1620,12 @@ status_t Parcel::writeEmbeddedNativeHandle(const native_handle_t *handle,
     uint32_t flags = 0;
     if (handle == nullptr) {
         native_handle_size = 0;
-        flags |= BINDER_BUFFER_NULLPTR;
     } else {
         native_handle_size = sizeof(native_handle_t)
                 + handle->numFds * sizeof(int) + handle->numInts * sizeof(int);
     }
-    status_t status = writeEmbeddedBufferWithFlags((void*) handle,
-            native_handle_size, &buffer_handle, flags,
+    status_t status = writeEmbeddedBuffer((void*) handle,
+            native_handle_size, &buffer_handle,
             parent_buffer_handle, parent_offset);
     if (status != OK) {
         return status;
@@ -1620,7 +1635,7 @@ status_t Parcel::writeEmbeddedNativeHandle(const native_handle_t *handle,
         fd_array.num_fds = handle->numFds;
         fd_array.parent = buffer_handle;
         fd_array.parent_offset = offsetof(native_handle_t, data);
-        return writeObject(fd_array, true /* nullMetaData */);
+        return writeObject(fd_array);
     }
     return OK;
 }
@@ -2266,10 +2281,10 @@ native_handle* Parcel::readNativeHandle() const
 
 int Parcel::readFileDescriptor() const
 {
-    const flat_binder_object* flat = readObject<flat_binder_object>(true /* nullMetaData */);
+    const binder_fd_object* fdo = readObject<binder_fd_object>();
 
-    if (flat && flat->type == BINDER_TYPE_FD) {
-        return flat->handle;
+    if (fdo && fdo->hdr.type == BINDER_TYPE_FD) {
+        return fdo->fd;
     }
 
     return BAD_TYPE;
@@ -2330,22 +2345,44 @@ status_t Parcel::readBlob(size_t len, ReadableBlob* outBlob) const
 }
 
 template<typename T>
-const T* Parcel::readObject(bool nullMetaData) const
+const T* Parcel::readObject() const
 {
     const size_t DPOS = mDataPos;
     if ((DPOS+sizeof(T)) <= mDataSize) {
         const T* obj = reinterpret_cast<const T*>(mData+DPOS);
         mDataPos = DPOS + sizeof(T);
-        // TODO cast to binder_header once we have the header from bionic
-        const flat_binder_object* flat_obj = reinterpret_cast<const flat_binder_object*>(obj);
-        if (!nullMetaData && (flat_obj->cookie == 0 && flat_obj->binder == 0)) {
-            // When transferring a NULL object, we don't write it into
-            // the object list, so we don't want to check for it when
-            // reading.
-            ALOGV("readObject Setting data pos of %p to %zu", this, mDataPos);
-            return obj;
+        const binder_object_header *hdr = reinterpret_cast<const binder_object_header*>(obj);
+        switch (hdr->type) {
+            case BINDER_TYPE_BINDER:
+            case BINDER_TYPE_WEAK_BINDER:
+            case BINDER_TYPE_HANDLE:
+            case BINDER_TYPE_WEAK_HANDLE: {
+                const flat_binder_object *flat_obj =
+                    reinterpret_cast<const flat_binder_object*>(hdr);
+                if (flat_obj->cookie == 0 && flat_obj->binder == 0) {
+                    // When transferring a NULL binder object, we don't write it into
+                    // the object list, so we don't want to check for it when
+                    // reading.
+                    ALOGV("readObject Setting data pos of %p to %zu", this, mDataPos);
+                    return obj;
+                }
+                break;
+            }
+            case BINDER_TYPE_FD:
+            case BINDER_TYPE_FDA:
+                // fd (-arrays) must always appear in the meta-data list (eg touched by the kernel)
+                break;
+            case BINDER_TYPE_PTR: {
+                const binder_buffer_object *buffer_obj =
+                    reinterpret_cast<const binder_buffer_object*>(hdr);
+                if ((void *)buffer_obj->buffer == nullptr) {
+                    // null pointers can be returned directly - they're not written in the
+                    // object list. All non-null buffers must appear in the objects list.
+                    return obj;
+                }
+                break;
+            }
         }
-
         // Ensure that this object is valid...
         binder_size_t* const OBJS = mObjects;
         const size_t N = mObjectsSize;
@@ -2392,19 +2429,28 @@ const T* Parcel::readObject(bool nullMetaData) const
     return NULL;
 }
 
-template const flat_binder_object* Parcel::readObject<flat_binder_object>(
-        bool nullMetaData) const;
+template const flat_binder_object* Parcel::readObject<flat_binder_object>() const;
 
-template const binder_buffer_object* Parcel::readObject<binder_buffer_object>(
-        bool nullMetaData) const;
+template const binder_fd_object* Parcel::readObject<binder_fd_object>() const;
 
-template const binder_fd_array_object* Parcel::readObject<binder_fd_array_object>(
-        bool nullMetaData) const;
+template const binder_buffer_object* Parcel::readObject<binder_buffer_object>() const;
 
-const void* Parcel::readBuffer(size_t *buffer_handle) const
+template const binder_fd_array_object* Parcel::readObject<binder_fd_array_object>() const;
+
+status_t Parcel::readBuffer(size_t *buffer_handle, const void **buffer_out) const
 {
+    status_t status = readNullableBuffer(buffer_handle, buffer_out);
+    if (status == OK && *buffer_out == nullptr) {
+        return UNEXPECTED_NULL;
+    }
+    return status;
+}
+
+status_t Parcel::readNullableBuffer(size_t *buffer_handle, const void **buffer_out) const
+{
+    status_t status = OK;
     LOG_BUFFER("readBuffer");
-    const binder_buffer_object* buffer_obj = readObject<binder_buffer_object>(true);
+    const binder_buffer_object* buffer_obj = readObject<binder_buffer_object>();
     // TODO we'll want to do a lot more verification, either here, or
     // in a new verify method.
     if (buffer_obj && isBuffer(*buffer_obj)) {
@@ -2412,18 +2458,34 @@ const void* Parcel::readBuffer(size_t *buffer_handle) const
             *buffer_handle = 0; // TODO fix this
         }
         // in read side, always use .buffer and .length.
-        return (void*)buffer_obj->buffer;
+        *buffer_out = reinterpret_cast<void*>(buffer_obj->buffer);
+        return OK;
     }
 
-    return nullptr;
+    return BAD_VALUE;
 }
 
-const void* Parcel::readEmbeddedBuffer(size_t *buffer_handle, size_t /*parent_buffer_handle*/,
-                                       size_t /*parent_offset*/) const
+status_t Parcel::readEmbeddedBuffer(size_t *buffer_handle,
+                                    size_t parent_buffer_handle,
+                                    size_t parent_offset,
+                                    const void **buffer_out) const
+{
+    status_t status = readNullableEmbeddedBuffer(buffer_handle, parent_buffer_handle,
+                                                 parent_offset, buffer_out);
+    if (status == OK && *buffer_out == nullptr) {
+        return UNEXPECTED_NULL;
+    }
+    return status;
+}
+
+status_t Parcel::readNullableEmbeddedBuffer(size_t *buffer_handle,
+                                            size_t /*parent_buffer_handle*/,
+                                            size_t /*parent_offset*/,
+                                            const void **buffer_out) const
 {
     // TODO verify parent and offset
     LOG_BUFFER("readEmbeddedBuffer");
-    return (readBuffer(buffer_handle));
+    return (readNullableBuffer(buffer_handle, buffer_out));
 }
 
 // isRef if corresponds to a writeReference call, else corresponds to a writeBuffer call.
@@ -2432,7 +2494,7 @@ status_t Parcel::readReference(void const* *bufptr,
                                size_t *buffer_handle, bool *isRef) const
 {
     LOG_BUFFER("readReference");
-    const binder_buffer_object* buffer_obj = readObject<binder_buffer_object>(true);
+    const binder_buffer_object* buffer_obj = readObject<binder_buffer_object>();
     LOG_BUFFER("    readReference: buf = %p, len = %zu, flags = %x",
         (void*)buffer_obj->buffer, (size_t)buffer_obj->length,
         (int)buffer_obj->flags);
@@ -2447,9 +2509,7 @@ status_t Parcel::readReference(void const* *bufptr,
         }
         // in read side, always use .buffer and .length.
         if(bufptr != nullptr) {
-            *bufptr = buffer_obj->flags & BINDER_BUFFER_NULLPTR
-                    ? nullptr
-                    : (void*)buffer_obj->buffer;
+            *bufptr = (void*)buffer_obj->buffer;
         }
         return OK;
     }
@@ -2470,28 +2530,48 @@ status_t Parcel::readEmbeddedReference(void const* *bufptr,
     return (readReference(bufptr, buffer_handle, isRef));
 }
 
-const native_handle_t* Parcel::readEmbeddedNativeHandle(size_t /*parent_buffer_handle*/,
-                                                        size_t /*parent_offset*/) const
+status_t Parcel::readEmbeddedNativeHandle(size_t parent_buffer_handle,
+                                          size_t parent_offset,
+                                          const native_handle_t **handle) const
 {
-    // TODO verify parent and offset, as well as fda object
-    return readNativeHandleNoDup();
+    status_t status = readNullableEmbeddedNativeHandle(parent_buffer_handle, parent_offset, handle);
+    if (status == OK && *handle == nullptr) {
+        return UNEXPECTED_NULL;
+    }
+    return status;
 }
 
-const native_handle_t* Parcel::readNativeHandleNoDup() const
+status_t Parcel::readNullableEmbeddedNativeHandle(size_t /*parent_buffer_handle*/,
+                                                  size_t /*parent_offset*/,
+                                                  const native_handle_t **handle) const
 {
-    native_handle_t *nat_handle = (native_handle_t*) readBuffer(nullptr);
-    if (nat_handle == nullptr) {
-        // either error, or it is null in the first place.
-        return nat_handle;
+    // TODO verify parent and offset, as well as fda object
+    return readNullableNativeHandleNoDup(handle);
+}
+
+status_t Parcel::readNativeHandleNoDup(const native_handle_t **handle) const
+{
+    status_t status = readNullableNativeHandleNoDup(handle);
+    if (status == OK && *handle == nullptr) {
+        return UNEXPECTED_NULL;
     }
-    const binder_fd_array_object* fd_array_obj =
-        readObject<binder_fd_array_object>(true /* nullMetaData */);
+    return status;
+}
+
+status_t Parcel::readNullableNativeHandleNoDup(const native_handle_t **handle) const
+{
+    status_t status = readNullableBuffer(nullptr, reinterpret_cast<const void**>(handle));
+    if (*handle == nullptr) {
+        // null native_handle, no need to read FDA
+        return OK;
+    }
+    const binder_fd_array_object* fd_array_obj = readObject<binder_fd_array_object>();
     if (fd_array_obj && fd_array_obj->hdr.type == BINDER_TYPE_FDA) {
         // TODO verification
-        return nat_handle;
+        return OK;
     }
 
-    return nullptr;
+    return BAD_VALUE;
 }
 
 void Parcel::closeFileDescriptors()
@@ -2648,8 +2728,8 @@ void Parcel::acquireObjects()
     binder_size_t* const objects = mObjects;
     while (i > 0) {
         i--;
-        const flat_binder_object* flat
-            = reinterpret_cast<flat_binder_object*>(data+objects[i]);
+        const binder_object_header* flat
+            = reinterpret_cast<binder_object_header*>(data+objects[i]);
         acquire_object(proc, *flat, this, &mOpenAshmemSize);
     }
 }
