@@ -15,19 +15,19 @@
  */
 #define LOG_TAG "HwbinderThroughputTest"
 
-#include <android/log.h>
-#include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
-#include <hidl/HidlSupport.h>
-
-#include <string>
-#include <cstring>
-
-#include <iostream>
-#include <vector>
-#include <tuple>
-
 #include <unistd.h>
 #include <sys/wait.h>
+
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <tuple>
+#include <vector>
+
+#include <log/log.h>
+
+#include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
+#include <hidl/HidlSupport.h>
 
 using namespace std;
 using namespace android;
