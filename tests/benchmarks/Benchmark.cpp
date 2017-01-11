@@ -16,15 +16,18 @@
 
 #define LOG_TAG "libhwbinder_benchmark"
 
-#include <android/log.h>
-#include <benchmark/benchmark.h>
-#include <hidl/Status.h>
-#include <hidl/ServiceManagement.h>
-#include <iostream>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <iostream>
+
+#include <log/log.h>
 #include <utils/StrongPointer.h>
+
+#include <benchmark/benchmark.h>
+#include <hidl/Status.h>
+#include <hidl/ServiceManagement.h>
 
 #include <android/hardware/tests/libhwbinder/1.0/IBenchmark.h>
 
