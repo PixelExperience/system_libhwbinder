@@ -81,7 +81,6 @@ struct binder_buffer_object {
 enum {
 	BINDER_BUFFER_HAS_PARENT   = 1U << 0,
 	BINDER_BUFFER_REF          = 1U << 1,
-	BINDER_BUFFER_NULLPTR      = 1U << 2,
 };
 
 /* A binder_fd_array object represents an array of file
