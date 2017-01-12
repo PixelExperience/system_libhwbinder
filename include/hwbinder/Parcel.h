@@ -194,16 +194,10 @@ public:
     status_t            writeDupImmutableBlobFileDescriptor(int fd);
 
     template<typename T>
-    status_t            writeObject(const T& val, bool nullMetaData);
+    status_t            writeObject(const T& val);
 
     status_t            writeBuffer(const void *buffer, size_t length, size_t *handle);
     status_t            writeEmbeddedBuffer(const void *buffer, size_t length, size_t *handle,
-                            size_t parent_buffer_handle, size_t parent_offset);
-private:
-    status_t            writeBufferWithFlags(const void *buffer, size_t length,
-                                             size_t *handle, uint32_t flags);
-    status_t            writeEmbeddedBufferWithFlags(const void *buffer,
-                            size_t length, size_t *handle, uint32_t flags,
                             size_t parent_buffer_handle, size_t parent_offset);
 public:
     status_t            writeReference(size_t *handle,
@@ -317,19 +311,31 @@ public:
     status_t            readBlob(size_t len, ReadableBlob* outBlob) const;
 
     template<typename T>
-    const T*            readObject(bool nullMetaData) const;
+    const T*            readObject() const;
 
-    const void*         readBuffer(size_t *buffer_handle) const;
-    const void*         readEmbeddedBuffer(size_t *buffer_handle,
-                           size_t parent_buffer_handle, size_t parent_offset) const;
+    status_t            readBuffer(size_t *buffer_handle, const void **buffer_out) const;
+    status_t            readNullableBuffer(size_t *buffer_handle, const void **buffer_out) const;
+    status_t            readEmbeddedBuffer(size_t *buffer_handle,
+                                           size_t parent_buffer_handle, size_t parent_offset,
+                                           const void **buffer_out) const;
+    status_t            readNullableEmbeddedBuffer(size_t *buffer_handle,
+                                                   size_t parent_buffer_handle,
+                                                   size_t parent_offset,
+                                                   const void **buffer_out) const;
+
     status_t            readReference(void const* *bufptr,
                                       size_t *buffer_handle, bool *isRef) const;
     status_t            readEmbeddedReference(void const* *bufptr, size_t *buffer_handle,
                                               size_t parent_buffer_handle, size_t parent_offset,
                                               bool *isRef) const;
-    const native_handle_t* readEmbeddedNativeHandle(size_t parent_buffer_handle,
-                           size_t parent_offset) const;
-    const native_handle_t* readNativeHandleNoDup() const;
+
+    status_t            readEmbeddedNativeHandle(size_t parent_buffer_handle,
+                           size_t parent_offset, const native_handle_t **handle) const;
+    status_t            readNullableEmbeddedNativeHandle(size_t parent_buffer_handle,
+                           size_t parent_offset, const native_handle_t **handle) const;
+    status_t            readNativeHandleNoDup(const native_handle_t **handle) const;
+    status_t            readNullableNativeHandleNoDup(const native_handle_t **handle) const;
+
     // Explicitly close all file descriptors in the parcel.
     void                closeFileDescriptors();
 
