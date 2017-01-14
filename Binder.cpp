@@ -18,7 +18,7 @@
 
 #include <atomic>
 #include <utils/misc.h>
-#include <hwbinder/BpBinder.h>
+#include <hwbinder/BpHwBinder.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/Parcel.h>
 
@@ -50,7 +50,7 @@ BHwBinder* IBinder::localBinder()
     return NULL;
 }
 
-BpBinder* IBinder::remoteBinder()
+BpHwBinder* IBinder::remoteBinder()
 {
     return NULL;
 }
@@ -66,7 +66,7 @@ class BHwBinder::Extras
 {
 public:
     Mutex mLock;
-    BpBinder::ObjectManager mObjects;
+    BpHwBinder::ObjectManager mObjects;
 };
 
 // ---------------------------------------------------------------------------

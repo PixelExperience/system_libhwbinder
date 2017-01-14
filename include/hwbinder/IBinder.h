@@ -37,7 +37,7 @@ namespace android {
 namespace hardware {
 
 class BHwBinder;
-class BpBinder;
+class BpHwBinder;
 class IInterface;
 class Parcel;
 
@@ -154,7 +154,7 @@ public:
     virtual void            detachObject(const void* objectID) = 0;
 
     virtual BHwBinder*        localBinder();
-    virtual BpBinder*       remoteBinder();
+    virtual BpHwBinder*       remoteBinder();
 
 protected:
     virtual          ~IBinder();

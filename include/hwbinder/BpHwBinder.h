@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_BPBINDER_H
-#define ANDROID_HARDWARE_BPBINDER_H
+#ifndef ANDROID_HARDWARE_BPHWBINDER_H
+#define ANDROID_HARDWARE_BPHWBINDER_H
 
 #include <hwbinder/IBinder.h>
 #include <utils/KeyedVector.h>
@@ -25,10 +25,10 @@
 namespace android {
 namespace hardware {
 
-class BpBinder : public IBinder
+class BpHwBinder : public IBinder
 {
 public:
-                        BpBinder(int32_t handle);
+                        BpHwBinder(int32_t handle);
 
     inline  int32_t     handle() const { return mHandle; }
 
@@ -58,7 +58,7 @@ public:
     virtual void*       findObject(const void* objectID) const;
     virtual void        detachObject(const void* objectID);
 
-    virtual BpBinder*   remoteBinder();
+    virtual BpHwBinder*   remoteBinder();
 
             status_t    setConstantData(const void* data, size_t size);
             void        sendObituary();
@@ -93,7 +93,7 @@ public:
     };
 
 protected:
-    virtual             ~BpBinder();
+    virtual             ~BpHwBinder();
     virtual void        onFirstRef();
     virtual void        onLastStrongRef(const void* id);
     virtual bool        onIncStrongAttempted(uint32_t flags, const void* id);
@@ -124,4 +124,4 @@ private:
 
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_HARDWARE_BPBINDER_H
+#endif // ANDROID_HARDWARE_BPHWBINDER_H

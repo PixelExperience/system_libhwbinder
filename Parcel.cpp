@@ -31,7 +31,7 @@
 #include <unistd.h>
 
 #include <hwbinder/Binder.h>
-#include <hwbinder/BpBinder.h>
+#include <hwbinder/BpHwBinder.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/Parcel.h>
 #include <hwbinder/ProcessState.h>
@@ -239,7 +239,7 @@ status_t flatten_binder(const sp<ProcessState>& /*proc*/,
     if (binder != NULL) {
         IBinder *local = binder->localBinder();
         if (!local) {
-            BpBinder *proxy = binder->remoteBinder();
+            BpHwBinder *proxy = binder->remoteBinder();
             if (proxy == NULL) {
                 ALOGE("null proxy");
             }
@@ -273,7 +273,7 @@ status_t flatten_binder(const sp<ProcessState>& /*proc*/,
         if (real != NULL) {
             IBinder *local = real->localBinder();
             if (!local) {
-                BpBinder *proxy = real->remoteBinder();
+                BpHwBinder *proxy = real->remoteBinder();
                 if (proxy == NULL) {
                     ALOGE("null proxy");
                 }
@@ -312,7 +312,7 @@ status_t flatten_binder(const sp<ProcessState>& /*proc*/,
 }
 
 inline static status_t finish_unflatten_binder(
-    BpBinder* /*proxy*/, const flat_binder_object& /*flat*/,
+    BpHwBinder* /*proxy*/, const flat_binder_object& /*flat*/,
     const Parcel& /*in*/)
 {
     return NO_ERROR;
@@ -331,7 +331,7 @@ status_t unflatten_binder(const sp<ProcessState>& proc,
             case BINDER_TYPE_HANDLE:
                 *out = proc->getStrongProxyForHandle(flat->handle);
                 return finish_unflatten_binder(
-                    static_cast<BpBinder*>(out->get()), *flat, in);
+                    static_cast<BpHwBinder*>(out->get()), *flat, in);
         }
     }
     return BAD_TYPE;
@@ -360,7 +360,7 @@ status_t unflatten_binder(const sp<ProcessState>& proc,
             case BINDER_TYPE_WEAK_HANDLE:
                 *out = proc->getWeakProxyForHandle(flat->handle);
                 return finish_unflatten_binder(
-                    static_cast<BpBinder*>(out->unsafe_get()), *flat, in);
+                    static_cast<BpHwBinder*>(out->unsafe_get()), *flat, in);
         }
     }
     return BAD_TYPE;
