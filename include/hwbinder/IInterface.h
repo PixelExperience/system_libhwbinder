@@ -38,7 +38,7 @@ protected:
 // ----------------------------------------------------------------------
 
 template<typename INTERFACE>
-class BnInterface : public INTERFACE, public IInterface, public BBinder
+class BnInterface : public INTERFACE, public IInterface, public BHwBinder
 {
 public:
                                 BnInterface(const sp<INTERFACE>& impl);
