@@ -72,9 +72,9 @@ public:
             status_t            attemptIncStrongHandle(int32_t handle);
     static  void                expungeHandle(int32_t handle, IBinder* binder);
             status_t            requestDeathNotification(   int32_t handle,
-                                                            BpBinder* proxy);
+                                                            BpHwBinder* proxy);
             status_t            clearDeathNotification( int32_t handle,
-                                                        BpBinder* proxy);
+                                                        BpHwBinder* proxy);
 
     static  void                shutdown();
 
