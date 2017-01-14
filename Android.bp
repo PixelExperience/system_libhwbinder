@@ -33,7 +33,7 @@ cc_library_shared {
     },
     srcs: [
         "Binder.cpp",
-        "BpBinder.cpp",
+        "BpHwBinder.cpp",
         "BufferedTextOutput.cpp",
         "Debug.cpp",
         "IInterface.cpp",

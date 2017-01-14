@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "BpBinder"
+#define LOG_TAG "BpHwBinder"
 //#define LOG_NDEBUG 0
 
-#include <hwbinder/BpBinder.h>
+#include <hwbinder/BpHwBinder.h>
 
 #include <hwbinder/IPCThreadState.h>
 #include <utils/Log.h>
@@ -32,16 +32,16 @@ namespace hardware {
 
 // ---------------------------------------------------------------------------
 
-BpBinder::ObjectManager::ObjectManager()
+BpHwBinder::ObjectManager::ObjectManager()
 {
 }
 
-BpBinder::ObjectManager::~ObjectManager()
+BpHwBinder::ObjectManager::~ObjectManager()
 {
     kill();
 }
 
-void BpBinder::ObjectManager::attach(
+void BpHwBinder::ObjectManager::attach(
     const void* objectID, void* object, void* cleanupCookie,
     IBinder::object_cleanup_func func)
 {
@@ -59,19 +59,19 @@ void BpBinder::ObjectManager::attach(
     mObjects.add(objectID, e);
 }
 
-void* BpBinder::ObjectManager::find(const void* objectID) const
+void* BpHwBinder::ObjectManager::find(const void* objectID) const
 {
     const ssize_t i = mObjects.indexOfKey(objectID);
     if (i < 0) return NULL;
     return mObjects.valueAt(i).object;
 }
 
-void BpBinder::ObjectManager::detach(const void* objectID)
+void BpHwBinder::ObjectManager::detach(const void* objectID)
 {
     mObjects.removeItem(objectID);
 }
 
-void BpBinder::ObjectManager::kill()
+void BpHwBinder::ObjectManager::kill()
 {
     const size_t N = mObjects.size();
     ALOGV("Killing %zu objects in manager %p", N, this);
@@ -87,29 +87,29 @@ void BpBinder::ObjectManager::kill()
 
 // ---------------------------------------------------------------------------
 
-BpBinder::BpBinder(int32_t handle)
+BpHwBinder::BpHwBinder(int32_t handle)
     : mHandle(handle)
     , mAlive(1)
     , mObitsSent(0)
     , mObituaries(NULL)
 {
-    ALOGV("Creating BpBinder %p handle %d\n", this, mHandle);
+    ALOGV("Creating BpHwBinder %p handle %d\n", this, mHandle);
 
     extendObjectLifetime(OBJECT_LIFETIME_WEAK);
     IPCThreadState::self()->incWeakHandle(handle);
 }
 
-bool BpBinder::isDescriptorCached() const {
+bool BpHwBinder::isDescriptorCached() const {
     Mutex::Autolock _l(mLock);
     return mDescriptorCache.size() ? true : false;
 }
 
-const String16& BpBinder::getInterfaceDescriptor() const
+const String16& BpHwBinder::getInterfaceDescriptor() const
 {
     if (isDescriptorCached() == false) {
         Parcel send, reply;
         // do the IPC without a lock held.
-        status_t err = const_cast<BpBinder*>(this)->transact(
+        status_t err = const_cast<BpHwBinder*>(this)->transact(
                 INTERFACE_TRANSACTION, send, &reply);
         if (err == NO_ERROR) {
             String16 res(reply.readString16());
@@ -128,12 +128,12 @@ const String16& BpBinder::getInterfaceDescriptor() const
     return mDescriptorCache;
 }
 
-bool BpBinder::isBinderAlive() const
+bool BpHwBinder::isBinderAlive() const
 {
     return mAlive != 0;
 }
 
-status_t BpBinder::pingBinder()
+status_t BpHwBinder::pingBinder()
 {
     Parcel send;
     Parcel reply;
@@ -143,7 +143,7 @@ status_t BpBinder::pingBinder()
     return (status_t)reply.readInt32();
 }
 
-status_t BpBinder::dump(int fd, const Vector<String16>& args)
+status_t BpHwBinder::dump(int fd, const Vector<String16>& args)
 {
     Parcel send;
     Parcel reply;
@@ -157,7 +157,7 @@ status_t BpBinder::dump(int fd, const Vector<String16>& args)
     return err;
 }
 
-status_t BpBinder::transact(
+status_t BpHwBinder::transact(
     uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags, TransactCallback /*callback*/)
 {
     // Once a binder has died, it will never come back to life.
@@ -171,7 +171,7 @@ status_t BpBinder::transact(
     return DEAD_OBJECT;
 }
 
-status_t BpBinder::linkToDeath(
+status_t BpHwBinder::linkToDeath(
     const sp<DeathRecipient>& recipient, void* cookie, uint32_t flags)
 {
     Obituary ob;
@@ -205,7 +205,7 @@ status_t BpBinder::linkToDeath(
     return DEAD_OBJECT;
 }
 
-status_t BpBinder::unlinkToDeath(
+status_t BpHwBinder::unlinkToDeath(
     const wp<DeathRecipient>& recipient, void* cookie, uint32_t flags,
     wp<DeathRecipient>* outRecipient)
 {
@@ -240,7 +240,7 @@ status_t BpBinder::unlinkToDeath(
     return NAME_NOT_FOUND;
 }
 
-void BpBinder::sendObituary()
+void BpHwBinder::sendObituary()
 {
     ALOGV("Sending obituary for proxy %p handle %d, mObitsSent=%s\n",
         this, mHandle, mObitsSent ? "true" : "false");
@@ -273,7 +273,7 @@ void BpBinder::sendObituary()
     }
 }
 
-void BpBinder::reportOneDeath(const Obituary& obit)
+void BpHwBinder::reportOneDeath(const Obituary& obit)
 {
     sp<DeathRecipient> recipient = obit.recipient.promote();
     ALOGV("Reporting death to recipient: %p\n", recipient.get());
@@ -283,7 +283,7 @@ void BpBinder::reportOneDeath(const Obituary& obit)
 }
 
 
-void BpBinder::attachObject(
+void BpHwBinder::attachObject(
     const void* objectID, void* object, void* cleanupCookie,
     object_cleanup_func func)
 {
@@ -292,26 +292,26 @@ void BpBinder::attachObject(
     mObjects.attach(objectID, object, cleanupCookie, func);
 }
 
-void* BpBinder::findObject(const void* objectID) const
+void* BpHwBinder::findObject(const void* objectID) const
 {
     AutoMutex _l(mLock);
     return mObjects.find(objectID);
 }
 
-void BpBinder::detachObject(const void* objectID)
+void BpHwBinder::detachObject(const void* objectID)
 {
     AutoMutex _l(mLock);
     mObjects.detach(objectID);
 }
 
-BpBinder* BpBinder::remoteBinder()
+BpHwBinder* BpHwBinder::remoteBinder()
 {
     return this;
 }
 
-BpBinder::~BpBinder()
+BpHwBinder::~BpHwBinder()
 {
-    ALOGV("Destroying BpBinder %p handle %d\n", this, mHandle);
+    ALOGV("Destroying BpHwBinder %p handle %d\n", this, mHandle);
 
     IPCThreadState* ipc = IPCThreadState::self();
 
@@ -336,16 +336,16 @@ BpBinder::~BpBinder()
     }
 }
 
-void BpBinder::onFirstRef()
+void BpHwBinder::onFirstRef()
 {
-    ALOGV("onFirstRef BpBinder %p handle %d\n", this, mHandle);
+    ALOGV("onFirstRef BpHwBinder %p handle %d\n", this, mHandle);
     IPCThreadState* ipc = IPCThreadState::self();
     if (ipc) ipc->incStrongHandle(mHandle);
 }
 
-void BpBinder::onLastStrongRef(const void* /*id*/)
+void BpHwBinder::onLastStrongRef(const void* /*id*/)
 {
-    ALOGV("onLastStrongRef BpBinder %p handle %d\n", this, mHandle);
+    ALOGV("onLastStrongRef BpHwBinder %p handle %d\n", this, mHandle);
     IF_ALOGV() {
         printRefs();
     }
@@ -353,9 +353,9 @@ void BpBinder::onLastStrongRef(const void* /*id*/)
     if (ipc) ipc->decStrongHandle(mHandle);
 }
 
-bool BpBinder::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
+bool BpHwBinder::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
 {
-    ALOGV("onIncStrongAttempted BpBinder %p handle %d\n", this, mHandle);
+    ALOGV("onIncStrongAttempted BpHwBinder %p handle %d\n", this, mHandle);
     IPCThreadState* ipc = IPCThreadState::self();
     return ipc ? ipc->attemptIncStrongHandle(mHandle) == NO_ERROR : false;
 }

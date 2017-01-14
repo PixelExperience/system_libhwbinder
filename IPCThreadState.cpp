@@ -19,7 +19,7 @@
 #include <hwbinder/IPCThreadState.h>
 
 #include <hwbinder/Binder.h>
-#include <hwbinder/BpBinder.h>
+#include <hwbinder/BpHwBinder.h>
 #include <hwbinder/TextOutput.h>
 #include <hwbinder/binder_kernel.h>
 
@@ -685,7 +685,7 @@ void IPCThreadState::expungeHandle(int32_t handle, IBinder* binder)
     self()->mProcess->expungeHandle(handle, binder);
 }
 
-status_t IPCThreadState::requestDeathNotification(int32_t handle, BpBinder* proxy)
+status_t IPCThreadState::requestDeathNotification(int32_t handle, BpHwBinder* proxy)
 {
     mOut.writeInt32(BC_REQUEST_DEATH_NOTIFICATION);
     mOut.writeInt32((int32_t)handle);
@@ -693,7 +693,7 @@ status_t IPCThreadState::requestDeathNotification(int32_t handle, BpBinder* prox
     return NO_ERROR;
 }
 
-status_t IPCThreadState::clearDeathNotification(int32_t handle, BpBinder* proxy)
+status_t IPCThreadState::clearDeathNotification(int32_t handle, BpHwBinder* proxy)
 {
     mOut.writeInt32(BC_CLEAR_DEATH_NOTIFICATION);
     mOut.writeInt32((int32_t)handle);
@@ -1164,7 +1164,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
 
     case BR_DEAD_BINDER:
         {
-            BpBinder *proxy = (BpBinder*)mIn.readPointer();
+            BpHwBinder *proxy = (BpHwBinder*)mIn.readPointer();
             proxy->sendObituary();
             mOut.writeInt32(BC_DEAD_BINDER_DONE);
             mOut.writePointer((uintptr_t)proxy);
@@ -1172,7 +1172,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
 
     case BR_CLEAR_DEATH_NOTIFICATION_DONE:
         {
-            BpBinder *proxy = (BpBinder*)mIn.readPointer();
+            BpHwBinder *proxy = (BpHwBinder*)mIn.readPointer();
             proxy->getWeakRefs()->decWeak(proxy);
         } break;
 
