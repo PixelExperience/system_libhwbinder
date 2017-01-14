@@ -35,9 +35,9 @@ class IPCThreadState
 public:
     static  IPCThreadState*     self();
     static  IPCThreadState*     selfOrNull();  // self(), but won't instantiate
-    
+
             sp<ProcessState>    process();
-            
+
             status_t            clearLastError();
 
             pid_t               getCallingPid() const;
@@ -51,16 +51,16 @@ public:
 
             int64_t             clearCallingIdentity();
             void                restoreCallingIdentity(int64_t token);
-            
+
             int                 setupPolling(int* fd);
             status_t            handlePolledCommands();
             void                flushCommands();
 
             void                joinThreadPool(bool isMain = true);
-            
+
             // Stop the local process.
             void                stopProcess(bool immediate = true);
-            
+
             status_t            transact(int32_t handle,
                                          uint32_t code, const Parcel& data,
                                          Parcel* reply, uint32_t flags);
@@ -72,9 +72,9 @@ public:
             status_t            attemptIncStrongHandle(int32_t handle);
     static  void                expungeHandle(int32_t handle, IBinder* binder);
             status_t            requestDeathNotification(   int32_t handle,
-                                                            BpBinder* proxy); 
+                                                            BpBinder* proxy);
             status_t            clearDeathNotification( int32_t handle,
-                                                        BpBinder* proxy); 
+                                                        BpBinder* proxy);
 
     static  void                shutdown();
 
@@ -90,7 +90,7 @@ public:
             void                blockUntilThreadAvailable();
 
             // Service manager registration
-            void                setTheContextObject(sp<BBinder> obj);
+            void                setTheContextObject(sp<BHwBinder> obj);
 private:
                                 IPCThreadState();
                                 ~IPCThreadState();
@@ -116,10 +116,10 @@ private:
                                            const uint8_t* data, size_t dataSize,
                                            const binder_size_t* objects, size_t objectsSize,
                                            void* cookie);
-    
+
     const   sp<ProcessState>    mProcess;
     const   pid_t               mMyThreadId;
-            Vector<BBinder*>    mPendingStrongDerefs;
+            Vector<BHwBinder*>    mPendingStrongDerefs;
             Vector<RefBase::weakref_type*> mPendingWeakDerefs;
 
             Parcel              mIn;
@@ -129,7 +129,7 @@ private:
             uid_t               mCallingUid;
             int32_t             mStrictModePolicy;
             int32_t             mLastTransactionBinderFlags;
-            sp<BBinder>         mContextObject;
+            sp<BHwBinder>         mContextObject;
 };
 
 }; // namespace hardware
