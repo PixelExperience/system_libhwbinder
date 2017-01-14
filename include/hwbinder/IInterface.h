@@ -55,7 +55,7 @@ inline BnInterface<INTERFACE>::BnInterface(
 // ----------------------------------------------------------------------
 
 template<typename INTERFACE>
-class BpInterface : public INTERFACE, public IInterface, public BpRefBase
+class BpInterface : public INTERFACE, public IInterface, public BpHwRefBase
 {
 public:
                                 BpInterface(const sp<IBinder>& remote);
@@ -75,7 +75,7 @@ IBinder* BnInterface<INTERFACE>::onAsBinder()
 
 template<typename INTERFACE>
 inline BpInterface<INTERFACE>::BpInterface(const sp<IBinder>& remote)
-    : BpRefBase(remote)
+    : BpHwRefBase(remote)
 {
 }
 

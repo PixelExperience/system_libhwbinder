@@ -228,12 +228,12 @@ status_t BHwBinder::onTransact(
 
 enum {
     // This is used to transfer ownership of the remote binder from
-    // the BpRefBase object holding it (when it is constructed), to the
-    // owner of the BpRefBase object when it first acquires that BpRefBase.
+    // the BpHwRefBase object holding it (when it is constructed), to the
+    // owner of the BpHwRefBase object when it first acquires that BpHwRefBase.
     kRemoteAcquired = 0x00000001
 };
 
-BpRefBase::BpRefBase(const sp<IBinder>& o)
+BpHwRefBase::BpHwRefBase(const sp<IBinder>& o)
     : mRemote(o.get()), mRefs(NULL), mState(0)
 {
     extendObjectLifetime(OBJECT_LIFETIME_WEAK);
@@ -244,7 +244,7 @@ BpRefBase::BpRefBase(const sp<IBinder>& o)
     }
 }
 
-BpRefBase::~BpRefBase()
+BpHwRefBase::~BpHwRefBase()
 {
     if (mRemote) {
         if (!(mState.load(std::memory_order_relaxed)&kRemoteAcquired)) {
@@ -254,19 +254,19 @@ BpRefBase::~BpRefBase()
     }
 }
 
-void BpRefBase::onFirstRef()
+void BpHwRefBase::onFirstRef()
 {
     mState.fetch_or(kRemoteAcquired, std::memory_order_relaxed);
 }
 
-void BpRefBase::onLastStrongRef(const void* /*id*/)
+void BpHwRefBase::onLastStrongRef(const void* /*id*/)
 {
     if (mRemote) {
         mRemote->decStrong(this);
     }
 }
 
-bool BpRefBase::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
+bool BpHwRefBase::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
 {
     return mRemote ? mRefs->attemptIncStrong(this) : false;
 }
