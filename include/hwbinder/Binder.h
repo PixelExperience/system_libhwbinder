@@ -25,10 +25,10 @@
 namespace android {
 namespace hardware {
 
-class BBinder : public IBinder
+class BHwBinder : public IBinder
 {
 public:
-                        BBinder();
+                        BHwBinder();
 
     virtual const String16& getInterfaceDescriptor() const;
     virtual bool        isBinderAlive() const;
@@ -57,10 +57,10 @@ public:
     virtual void*       findObject(const void* objectID) const;
     virtual void        detachObject(const void* objectID);
 
-    virtual BBinder*    localBinder();
+    virtual BHwBinder*    localBinder();
 
 protected:
-    virtual             ~BBinder();
+    virtual             ~BHwBinder();
 
     virtual status_t    onTransact( uint32_t code,
                                     const Parcel& data,
@@ -69,8 +69,8 @@ protected:
                                     TransactCallback callback = nullptr);
 
 private:
-                        BBinder(const BBinder& o);
-            BBinder&    operator=(const BBinder& o);
+                        BHwBinder(const BHwBinder& o);
+            BHwBinder&    operator=(const BHwBinder& o);
 
     class Extras;
 
