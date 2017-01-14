@@ -80,11 +80,11 @@ private:
 
 // ---------------------------------------------------------------------------
 
-class BpRefBase : public virtual RefBase
+class BpHwRefBase : public virtual RefBase
 {
 protected:
-                            BpRefBase(const sp<IBinder>& o);
-    virtual                 ~BpRefBase();
+                            BpHwRefBase(const sp<IBinder>& o);
+    virtual                 ~BpHwRefBase();
     virtual void            onFirstRef();
     virtual void            onLastStrongRef(const void* id);
     virtual bool            onIncStrongAttempted(uint32_t flags, const void* id);
@@ -93,8 +93,8 @@ protected:
     inline  IBinder*        remote() const          { return mRemote; }
 
 private:
-                            BpRefBase(const BpRefBase& o);
-    BpRefBase&              operator=(const BpRefBase& o);
+                            BpHwRefBase(const BpHwRefBase& o);
+    BpHwRefBase&              operator=(const BpHwRefBase& o);
 
     IBinder* const          mRemote;
     RefBase::weakref_type*  mRefs;
