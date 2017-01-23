@@ -62,35 +62,11 @@ public:
         HIDL_DESCRIPTOR_CHAIN_TRANSACTION = FIRST_HIDL_TRANSACTION,
         LAST_HIDL_TRANSACTION   = 0x00ffffff,
 
-        /////////////////// other reserved transactions
-        PING_TRANSACTION        = B_PACK_CHARS('_','P','N','G'),
-        DUMP_TRANSACTION        = B_PACK_CHARS('_','D','M','P'),
-        SHELL_COMMAND_TRANSACTION = B_PACK_CHARS('_','C','M','D'),
-        INTERFACE_TRANSACTION   = B_PACK_CHARS('_', 'N', 'T', 'F'),
-        SYSPROPS_TRANSACTION    = B_PACK_CHARS('_', 'S', 'P', 'R'),
-
         // Corresponds to TF_ONE_WAY -- an asynchronous call.
         FLAG_ONEWAY             = 0x00000001
     };
 
                           IBinder();
-
-    /**
-     * Check if this IBinder implements the interface named by
-     * @a descriptor.  If it does, the base pointer to it is returned,
-     * which you can safely static_cast<> to the concrete C++ interface.
-     */
-    virtual sp<IInterface>  queryLocalInterface(const String16& descriptor);
-
-    /**
-     * Return the canonical name of the interface provided by this IBinder
-     * object.
-     */
-    virtual const String16& getInterfaceDescriptor() const = 0;
-
-    virtual bool            isBinderAlive() const = 0;
-    virtual status_t        pingBinder() = 0;
-    virtual status_t        dump(int fd, const Vector<String16>& args) = 0;
 
     virtual status_t        transact(   uint32_t code,
                                         const Parcel& data,
