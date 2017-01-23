@@ -99,64 +99,6 @@ BpHwBinder::BpHwBinder(int32_t handle)
     IPCThreadState::self()->incWeakHandle(handle);
 }
 
-bool BpHwBinder::isDescriptorCached() const {
-    Mutex::Autolock _l(mLock);
-    return mDescriptorCache.size() ? true : false;
-}
-
-const String16& BpHwBinder::getInterfaceDescriptor() const
-{
-    if (isDescriptorCached() == false) {
-        Parcel send, reply;
-        // do the IPC without a lock held.
-        status_t err = const_cast<BpHwBinder*>(this)->transact(
-                INTERFACE_TRANSACTION, send, &reply);
-        if (err == NO_ERROR) {
-            String16 res(reply.readString16());
-            Mutex::Autolock _l(mLock);
-            // mDescriptorCache could have been assigned while the lock was
-            // released.
-            if (mDescriptorCache.size() == 0)
-                mDescriptorCache = res;
-        }
-    }
-
-    // we're returning a reference to a non-static object here. Usually this
-    // is not something smart to do, however, with binder objects it is
-    // (usually) safe because they are reference-counted.
-
-    return mDescriptorCache;
-}
-
-bool BpHwBinder::isBinderAlive() const
-{
-    return mAlive != 0;
-}
-
-status_t BpHwBinder::pingBinder()
-{
-    Parcel send;
-    Parcel reply;
-    status_t err = transact(PING_TRANSACTION, send, &reply);
-    if (err != NO_ERROR) return err;
-    if (reply.dataSize() < sizeof(status_t)) return NOT_ENOUGH_DATA;
-    return (status_t)reply.readInt32();
-}
-
-status_t BpHwBinder::dump(int fd, const Vector<String16>& args)
-{
-    Parcel send;
-    Parcel reply;
-    send.writeFileDescriptor(fd);
-    const size_t numArgs = args.size();
-    send.writeInt32(numArgs);
-    for (size_t i = 0; i < numArgs; i++) {
-        send.writeString16(args[i]);
-    }
-    status_t err = transact(DUMP_TRANSACTION, send, &reply);
-    return err;
-}
-
 status_t BpHwBinder::transact(
     uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags, TransactCallback /*callback*/)
 {

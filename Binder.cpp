@@ -40,11 +40,6 @@ IBinder::~IBinder()
 
 // ---------------------------------------------------------------------------
 
-sp<IInterface>  IBinder::queryLocalInterface(const String16& /*descriptor*/)
-{
-    return NULL;
-}
-
 BHwBinder* IBinder::localBinder()
 {
     return NULL;
@@ -75,25 +70,6 @@ BHwBinder::BHwBinder() : mExtras(nullptr)
 {
 }
 
-bool BHwBinder::isBinderAlive() const
-{
-    return true;
-}
-
-status_t BHwBinder::pingBinder()
-{
-    return NO_ERROR;
-}
-
-const String16& BHwBinder::getInterfaceDescriptor() const
-{
-    // This is a local static rather than a global static,
-    // to avoid static initializer ordering issues.
-    static String16 sEmptyDescriptor;
-    ALOGW("reached BHwBinder::getInterfaceDescriptor (this=%p)", this);
-    return sEmptyDescriptor;
-}
-
 status_t BHwBinder::transact(
     uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags, TransactCallback callback)
 {
@@ -101,13 +77,6 @@ status_t BHwBinder::transact(
 
     status_t err = NO_ERROR;
     switch (code) {
-        case PING_TRANSACTION:
-            reply->writeInt32(pingBinder());
-            reply->setDataPosition(0);
-            if (callback != NULL) {
-                callback(*reply);
-            }
-            break;
         default:
             err = onTransact(code, data, reply, flags,
                     [&](auto &replyParcel) {
@@ -134,11 +103,6 @@ status_t BHwBinder::unlinkToDeath(
     uint32_t /*flags*/, wp<DeathRecipient>* /*outRecipient*/)
 {
     return INVALID_OPERATION;
-}
-
-status_t BHwBinder::dump(int /*fd*/, const Vector<String16>& /*args*/)
-{
-    return NO_ERROR;
 }
 
 void BHwBinder::attachObject(
@@ -194,34 +158,10 @@ BHwBinder::~BHwBinder()
 
 
 status_t BHwBinder::onTransact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t /*flags*/, TransactCallback callback)
+    uint32_t /*code*/, const Parcel& /*data*/, Parcel* /*reply*/, uint32_t /*flags*/,
+    TransactCallback /*callback*/)
 {
-    switch (code) {
-        case INTERFACE_TRANSACTION:
-            reply->writeString16(getInterfaceDescriptor());
-            if (callback != NULL) {
-                callback(*reply);
-            }
-            return NO_ERROR;
-
-        case DUMP_TRANSACTION: {
-            int fd = data.readFileDescriptor();
-            int argc = data.readInt32();
-            Vector<String16> args;
-            for (int i = 0; i < argc && data.dataAvail() > 0; i++) {
-               args.add(data.readString16());
-            }
-            return dump(fd, args);
-        }
-
-        case SYSPROPS_TRANSACTION: {
-            report_sysprop_change();
-            return NO_ERROR;
-        }
-
-        default:
-            return UNKNOWN_TRANSACTION;
-    }
+    return UNKNOWN_TRANSACTION;
 }
 
 // ---------------------------------------------------------------------------
