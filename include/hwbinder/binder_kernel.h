@@ -90,8 +90,8 @@ enum {
  */
 struct binder_fd_array_object {
 	struct binder_object_header	hdr;
-
-	binder_size_t           num_fds;
+	__u32			_pad; /* hdr is 4 bytes, ensure 8-byte alignment of next fields */
+	binder_size_t		num_fds;
 	binder_size_t		parent; /* index of parent in objects array */
 	binder_size_t		parent_offset; /* offset of pointer in parent */
 };
