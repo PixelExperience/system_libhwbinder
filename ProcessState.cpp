@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "ProcessState"
+#define LOG_TAG "hw-ProcessState"
 
 #include <hwbinder/ProcessState.h>
 

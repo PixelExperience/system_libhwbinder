@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "BpHwBinder"
+#define LOG_TAG "hw-BpHwBinder"
 //#define LOG_NDEBUG 0
 
 #include <hwbinder/BpHwBinder.h>
