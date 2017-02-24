@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "hw-BufferedTextOutput"
+
 #include <hwbinder/BufferedTextOutput.h>
 #include <hwbinder/Debug.h>
 

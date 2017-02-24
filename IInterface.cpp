@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "IInterface"
+#define LOG_TAG "hw-IInterface"
 #include <utils/Log.h>
 #include <hwbinder/IInterface.h>
 
