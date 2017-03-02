@@ -292,7 +292,10 @@ void BpHwBinder::onLastStrongRef(const void* /*id*/)
         printRefs();
     }
     IPCThreadState* ipc = IPCThreadState::self();
-    if (ipc) ipc->decStrongHandle(mHandle);
+    if (ipc) {
+        ipc->decStrongHandle(mHandle);
+        ipc->flushCommands();
+    }
 }
 
 bool BpHwBinder::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
