@@ -76,20 +76,20 @@ TextOutput& aerr(gStderrTextOutput);
 Mutex gProcessMutex;
 sp<ProcessState> gProcess;
 
-class LibBinderIPCtStatics
+class LibHwbinderIPCtStatics
 {
 public:
-    LibBinderIPCtStatics()
+    LibHwbinderIPCtStatics()
     {
     }
     
-    ~LibBinderIPCtStatics()
+    ~LibHwbinderIPCtStatics()
     {
         IPCThreadState::shutdown();
     }
 };
 
-static LibBinderIPCtStatics gIPCStatics;
+static LibHwbinderIPCtStatics gIPCStatics;
 
 }   // namespace hardware
 }   // namespace android
