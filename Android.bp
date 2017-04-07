@@ -25,8 +25,9 @@ cc_library_shared {
         "libutils",
     ],
     export_include_dirs: ["include"],
-    local_include_dirs: ["include"],
+    include_dirs: ["frameworks/native/include"],
 
+    vendor_available: true,
     clang: true,
     sanitize: {
         misc_undefined: ["integer"],
