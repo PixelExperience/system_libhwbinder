@@ -23,7 +23,6 @@
 #include <hwbinder/TextOutput.h>
 #include <hwbinder/binder_kernel.h>
 
-#include <cutils/sched_policy.h>
 #include <utils/Log.h>
 #include <utils/SystemClock.h>
 #include <utils/threads.h>
