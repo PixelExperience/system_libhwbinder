@@ -30,6 +30,8 @@
 
 #include <hwbinder/IInterface.h>
 
+struct binder_buffer_object;
+
 // ---------------------------------------------------------------------------
 namespace android {
 namespace hardware {
@@ -117,6 +119,9 @@ public:
 
     status_t            writeEmbeddedNativeHandle(const native_handle_t *handle,
                             size_t parent_buffer_handle, size_t parent_offset);
+    status_t            writeNativeHandleNoDup(const native_handle* handle, bool embedded,
+                                               size_t parent_buffer_handle = 0,
+                                               size_t parent_offset = 0);
     status_t            writeNativeHandleNoDup(const native_handle* handle);
 
     void                remove(size_t start, size_t amt);
@@ -153,14 +158,17 @@ public:
     wp<IBinder>         readWeakBinder() const;
 
     template<typename T>
-    const T*            readObject() const;
+    const T*            readObject(size_t *objects_offset = nullptr) const;
 
-    status_t            readBuffer(size_t *buffer_handle, const void **buffer_out) const;
-    status_t            readNullableBuffer(size_t *buffer_handle, const void **buffer_out) const;
-    status_t            readEmbeddedBuffer(size_t *buffer_handle,
+    status_t            readBuffer(size_t buffer_size, size_t *buffer_handle,
+                                   const void **buffer_out) const;
+    status_t            readNullableBuffer(size_t buffer_size, size_t *buffer_handle,
+                                           const void **buffer_out) const;
+    status_t            readEmbeddedBuffer(size_t buffer_size, size_t *buffer_handle,
                                            size_t parent_buffer_handle, size_t parent_offset,
                                            const void **buffer_out) const;
-    status_t            readNullableEmbeddedBuffer(size_t *buffer_handle,
+    status_t            readNullableEmbeddedBuffer(size_t buffer_size,
+                                                   size_t *buffer_handle,
                                                    size_t parent_buffer_handle,
                                                    size_t parent_offset,
                                                    const void **buffer_out) const;
@@ -170,7 +178,6 @@ public:
     status_t            readEmbeddedReference(void const* *bufptr, size_t *buffer_handle,
                                               size_t parent_buffer_handle, size_t parent_offset,
                                               bool *isRef) const;
-
     status_t            readEmbeddedNativeHandle(size_t parent_buffer_handle,
                            size_t parent_offset, const native_handle_t **handle) const;
     status_t            readNullableEmbeddedNativeHandle(size_t parent_buffer_handle,
@@ -200,6 +207,19 @@ private:
     void                clearCache() const;
     // update mBufCache for all objects between mBufCachePos and mObjectsSize
     void                updateCache() const;
+
+    bool                verifyBufferObject(const binder_buffer_object *buffer_obj,
+                                           size_t size, uint32_t flags, size_t parent,
+                                           size_t parentOffset) const;
+
+    status_t            readBuffer(size_t buffer_size, size_t *buffer_handle,
+                                   uint32_t flags, size_t parent, size_t parentOffset,
+                                   const void **buffer_out) const;
+
+    status_t            readNullableNativeHandleNoDup(const native_handle_t **handle,
+                                                      bool embedded,
+                                                      size_t parent_buffer_handle = 0,
+                                                      size_t parent_offset = 0) const;
 public:
 
     // The following two methods attempt to find if a chunk of memory ("buffer")
