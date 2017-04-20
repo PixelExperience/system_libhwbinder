@@ -1523,7 +1523,8 @@ bool Parcel::verifyBufferObject(const binder_buffer_object *buffer_obj,
                                 size_t size, uint32_t flags, size_t parent,
                                 size_t parentOffset) const {
     if (buffer_obj->length != size) {
-        ALOGE("Buffer length %lld does not match expected size %zu.", buffer_obj->length, size);
+        ALOGE("Buffer length %" PRIu64 " does not match expected size %zu.",
+              static_cast<uint64_t>(buffer_obj->length), size);
         return false;
     }
 
@@ -1534,13 +1535,13 @@ bool Parcel::verifyBufferObject(const binder_buffer_object *buffer_obj,
 
     if (flags & BINDER_BUFFER_HAS_PARENT) {
         if (buffer_obj->parent != parent) {
-            ALOGE("Buffer parent %lld does not match expected parent %zu.",
-                  buffer_obj->parent, parent);
+            ALOGE("Buffer parent %" PRIu64 " does not match expected parent %zu.",
+                  static_cast<uint64_t>(buffer_obj->parent), parent);
             return false;
         }
         if (buffer_obj->parent_offset != parentOffset) {
-            ALOGE("Buffer parent offset %lld does not match expected offset %zu.",
-                  buffer_obj->parent_offset, parentOffset);
+              ALOGE("Buffer parent offset %" PRIu64 " does not match expected offset %zu.",
+                  static_cast<uint64_t>(buffer_obj->parent_offset), parentOffset);
             return false;
         }
     }
