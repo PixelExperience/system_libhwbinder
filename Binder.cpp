@@ -22,6 +22,7 @@
 #include <hwbinder/IInterface.h>
 #include <hwbinder/Parcel.h>
 
+#include <sched.h>
 #include <stdio.h>
 
 namespace android {
@@ -66,8 +67,16 @@ public:
 
 // ---------------------------------------------------------------------------
 
-BHwBinder::BHwBinder() : mExtras(nullptr)
+BHwBinder::BHwBinder() : mSchedPolicy(SCHED_NORMAL), mSchedPriority(0), mExtras(nullptr)
 {
+}
+
+int BHwBinder::getMinSchedulingPolicy() {
+    return mSchedPolicy;
+}
+
+int BHwBinder::getMinSchedulingPriority() {
+    return mSchedPriority;
 }
 
 status_t BHwBinder::transact(
