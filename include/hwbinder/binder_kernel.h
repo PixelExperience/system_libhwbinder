@@ -106,6 +106,11 @@ enum {
 	BC_REPLY_SG = _IOW('c', 18, struct binder_transaction_data_sg),
 };
 
+enum {
+        FLAT_BINDER_FLAG_SCHEDPOLICY_MASK = 0x600,
+        FLAT_BINDER_FLAG_SCHEDPOLICY_SHIFT = 9,
+};
+
 struct binder_node_debug_info {
 	binder_uintptr_t ptr;
 	binder_uintptr_t cookie;
