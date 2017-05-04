@@ -106,4 +106,10 @@ enum {
 	BC_REPLY_SG = _IOW('c', 18, struct binder_transaction_data_sg),
 };
 
+enum {
+        FLAT_BINDER_FLAG_SCHEDPOLICY_MASK = 0x600,
+        FLAT_BINDER_FLAG_SCHEDPOLICY_SHIFT = 9,
+};
+
+
 #endif // ANDROID_HARDWARE_BINDER_KERNEL_H
