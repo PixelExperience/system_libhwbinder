@@ -76,3 +76,24 @@ LOCAL_C_INCLUDES := system/libhwbinder/include
 
 LOCAL_MULTILIB := both
 include $(BUILD_NATIVE_TEST)
+
+# build for latency benchmark test for hwbinder.
+include $(CLEAR_VARS)
+LOCAL_MODULE := libhwbinder_latency
+
+LOCAL_MODULE_TAGS := eng tests
+
+LOCAL_SRC_FILES := Latency.cpp
+LOCAL_SHARED_LIBRARIES := \
+    libhwbinder \
+    libhidlbase \
+    libhidltransport \
+    liblog \
+    libutils \
+    android.hardware.tests.libhwbinder@1.0
+
+LOCAL_REQUIRED_MODULES := android.hardware.tests.libhwbinder@1.0-impl
+LOCAL_C_INCLUDES := system/libhwbinder/include
+
+LOCAL_MULTILIB := both
+include $(BUILD_NATIVE_TEST)
