@@ -297,6 +297,8 @@ void signal_all(vector<Pipe>& v) {
 }
 
 int main(int argc, char *argv[]) {
+    setenv("TREBLE_TESTING_OVERRIDE", "true", true);
+
     enum HwBinderMode {
         kBinderize = 0,
         kPassthrough = 1,
