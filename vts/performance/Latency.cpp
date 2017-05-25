@@ -383,6 +383,8 @@ static void signalAll(vector<Pipe>& v) {
 // The difference is sch-dbg tests binder transaction and this one test
 // HwBinder transaction.
 int main(int argc, char** argv) {
+    setenv("TREBLE_TESTING_OVERRIDE", "true", true);
+
     vector<Pipe> client_pipes;
     vector<Pipe> service_pipes;
 
