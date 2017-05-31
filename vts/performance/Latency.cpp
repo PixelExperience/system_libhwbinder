@@ -20,6 +20,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -53,7 +54,8 @@ vector<sp<IScheduleTest> > services;
 
 string trace_path = "/sys/kernel/debug/tracing";
 
-// the default value
+// default arguments
+bool dump_raw_data = false;
 int no_pair = 1;
 int iterations = 100;
 int verbose = 0;
@@ -179,8 +181,10 @@ class Results {
     uint64_t m_transactions = 0;
     uint64_t m_total_time = 0;
     uint64_t m_miss = 0;
-    uint32_t m_buckets[num_buckets] = {0};
-    bool tracing = false;
+    uint32_t m_buckets[num_buckets] = {0};  ///< statistics for the distribution
+    list<uint64_t>* raw_data = nullptr;     ///< list for raw-data
+    bool tracing = false;                   ///< halt the trace log on a deadline miss
+    bool raw_dump = false;                  ///< record the raw data for the dump after
 
    public:
     void setTrace(bool _tracing) { tracing = _tracing; }
@@ -199,10 +203,14 @@ class Results {
         ret.m_total_time = a.m_total_time + b.m_total_time;
         return ret;
     }
+    // add a new transaction latency record
     void addTime(uint64_t nano) {
         m_buckets[min(nano, max_time_bucket - 1) / time_per_bucket] += 1;
         m_best = min(nano, m_best);
         m_worst = max(nano, m_worst);
+        if (raw_dump) {
+            raw_data->push_back(nano);
+        }
         m_transactions += 1;
         m_total_time += nano;
         if (missDeadline(nano)) m_miss++;
@@ -216,6 +224,28 @@ class Results {
             cout << "log:" + trace_path + "/trace" << endl;
             cout << endl;
             exit(1);
+        }
+    }
+    // setup raw dump
+    void setupRawData() {
+        raw_dump = true;
+        if (raw_data == nullptr)
+            raw_data = new list<uint64_t>;
+        else
+            raw_data->clear();
+    }
+    // dump and flush the raw data
+    void flushRawData() {
+        if (raw_dump) {
+            bool first = true;
+            cout << "[";
+            for (auto nano : *raw_data) {
+                cout << (first ? "" : ",") << to_string(nano);
+                first = false;
+            }
+            cout << "]," << endl;
+            delete raw_data;
+            raw_data = nullptr;
         }
     }
     // dump average, best, worst latency in json
@@ -261,11 +291,6 @@ class Results {
 // statistics of a process pair
 class PResults {
    public:
-    int no_inherent = 0;
-    int no_sync = 0;
-    class Results other, fifo;
-    PResults() { fifo.setTrace(is_tracing); }
-
     static PResults combine(const PResults& a, const PResults& b) {
         PResults ret;
         ret.no_inherent = a.no_inherent + b.no_inherent;
@@ -275,11 +300,22 @@ class PResults {
         return ret;
     }
 
-    void dump(string name) {
+    int no_inherent = 0;  ///< #transactions that does not inherit priority
+    int no_sync = 0;      ///< #transactions that are not synced
+    Results other;        ///< statistics of CFS-other transactions
+    Results fifo;         ///< statistics of RT-fifo transactions
+    PResults() {
+        fifo.setTrace(is_tracing);
+        if (dump_raw_data) fifo.setupRawData();
+    }
+
+    // dump and flush the raw data
+    void flushRawData() { fifo.flushRawData(); }
+
+    void dump() {
         int no_trans = other.getTransactions() + fifo.getTransactions();
         double sync_ratio = (1.0 - (double)(no_sync) / no_trans);
-        cout << "\"" << name << "\":{\"SYNC\":\""
-             << ((sync_ratio > GOOD_SYNC_MIN) ? "GOOD" : "POOR") << "\","
+        cout << "{\"SYNC\":\"" << ((sync_ratio > GOOD_SYNC_MIN) ? "GOOD" : "POOR") << "\","
              << "\"S\":" << (no_trans - no_sync) << ",\"I\":" << no_trans << ","
              << "\"R\":" << sync_ratio << "," << endl;
         cout << "  \"other_ms\":";
@@ -418,6 +454,11 @@ static void clientFx(int num, int server_count, int iterations, Pipe p) {
 
     // wait to send result
     p.wait();
+    if (dump_raw_data) {
+        cout << "\"fifo_" + to_string(num) + "_data\": ";
+        presults.flushRawData();
+    }
+    cout.flush();
     p.send(presults);
 
     // wait for kill
@@ -459,6 +500,7 @@ static void help() {
     cout << "-pair 4           # number of process pairs" << endl;
     cout << "-deadline_us 2500 # deadline in us" << endl;
     cout << "-v                # debug" << endl;
+    cout << "-raw_data         # dump raw data" << endl;
     cout << "-trace            # halt the trace on a dealine hit" << endl;
     exit(0);
 }
@@ -505,6 +547,9 @@ int main(int argc, char** argv) {
         }
         if (string(argv[i]) == "-v") {
             verbose = 1;
+        }
+        if (string(argv[i]) == "-raw_data") {
+            dump_raw_data = true;
         }
         // The -trace argument is used like that:
         //
@@ -558,15 +603,17 @@ int main(int argc, char** argv) {
     waitAll(client_pipes);
 
     // collect all results
-    signalAll(client_pipes);
     PResults total, presults[no_pair];
     for (int i = 0; i < no_pair; i++) {
+        client_pipes[i].signal();
         client_pipes[i].recv(presults[i]);
         total = PResults::combine(total, presults[i]);
     }
-    total.dump("ALL");
+    cout << "\"ALL\":";
+    total.dump();
     for (int i = 0; i < no_pair; i++) {
-        presults[i].dump("P" + to_string(i));
+        cout << "\"P" << i << "\":";
+        presults[i].dump();
     }
 
     if (!pass_through) {
