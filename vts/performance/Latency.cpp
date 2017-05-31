@@ -24,6 +24,7 @@
 #include <tuple>
 #include <vector>
 
+#include <hidl/LegacySupport.h>
 #include <pthread.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -55,11 +56,11 @@ string trace_path = "/sys/kernel/debug/tracing";
 // the default value
 int no_pair = 1;
 int iterations = 100;
-int no_inherent = 0;
-int no_sync = 0;
 int verbose = 0;
-int trace;
+int is_tracing;
 bool pass_through = false;
+// the deadline latency that we are interested in
+uint64_t deadline_us = 2500;
 
 static bool traceIsOn() {
     fstream file;
@@ -77,17 +78,14 @@ static void traceStop() {
     file.close();
 }
 
-// the deadline latency that we are interested in
-uint64_t deadline_us = 2500;
-
-static int threadPri() {
+static int threadGetPri() {
     struct sched_param param;
     int policy;
     ASSERT(!pthread_getschedparam(pthread_self(), &policy, &param));
     return param.sched_priority;
 }
 
-static void threadDump(const char* prefix) {
+static void threadDumpPri(const char* prefix) {
     struct sched_param param;
     int policy;
     if (!verbose) return;
@@ -169,22 +167,46 @@ static inline uint64_t tickNano(Tick& sta, Tick& end) {
     return uint64_t(chrono::duration_cast<chrono::nanoseconds>(end - sta).count());
 }
 
-struct Results {
+// statistics of latency
+class Results {
+    static const uint32_t num_buckets = 128;
+    static const uint64_t max_time_bucket = 50ull * 1000000;
+    static const uint64_t time_per_bucket = max_time_bucket / num_buckets;
+    static constexpr float time_per_bucket_ms = time_per_bucket / 1.0E6;
+
     uint64_t m_best = 0xffffffffffffffffULL;
     uint64_t m_worst = 0;
     uint64_t m_transactions = 0;
     uint64_t m_total_time = 0;
     uint64_t m_miss = 0;
-    bool tracing;
-    Results(bool _tracing) : tracing(_tracing) {}
-    inline bool miss_deadline(uint64_t nano) { return nano > deadline_us * 1000; }
-    void add_time(uint64_t nano) {
+    uint32_t m_buckets[num_buckets] = {0};
+    bool tracing = false;
+
+   public:
+    void setTrace(bool _tracing) { tracing = _tracing; }
+    inline uint64_t getTransactions() { return m_transactions; }
+    inline bool missDeadline(uint64_t nano) { return nano > deadline_us * 1000; }
+    // Combine two sets of latency data points and update the aggregation info.
+    static Results combine(const Results& a, const Results& b) {
+        Results ret;
+        for (uint32_t i = 0; i < num_buckets; i++) {
+            ret.m_buckets[i] = a.m_buckets[i] + b.m_buckets[i];
+        }
+        ret.m_worst = max(a.m_worst, b.m_worst);
+        ret.m_best = min(a.m_best, b.m_best);
+        ret.m_transactions = a.m_transactions + b.m_transactions;
+        ret.m_miss = a.m_miss + b.m_miss;
+        ret.m_total_time = a.m_total_time + b.m_total_time;
+        return ret;
+    }
+    void addTime(uint64_t nano) {
+        m_buckets[min(nano, max_time_bucket - 1) / time_per_bucket] += 1;
         m_best = min(nano, m_best);
         m_worst = max(nano, m_worst);
         m_transactions += 1;
         m_total_time += nano;
-        if (miss_deadline(nano)) m_miss++;
-        if (miss_deadline(nano) && tracing) {
+        if (missDeadline(nano)) m_miss++;
+        if (missDeadline(nano) && tracing) {
             // There might be multiple process pair running the test concurrently
             // each may execute following statements and only the first one actually
             // stop the trace and any traceStop() afterthen has no effect.
@@ -196,6 +218,7 @@ struct Results {
             exit(1);
         }
     }
+    // dump average, best, worst latency in json
     void dump() {
         double best = (double)m_best / 1.0E6;
         double worst = (double)m_worst / 1.0E6;
@@ -207,63 +230,121 @@ struct Results {
              << ", \"meetR\":" << setprecision(DUMP_PRICISION + 3) << left
              << (1.0 - (double)m_miss / m_transactions) << "}";
     }
+    // dump latency distribution in json
+    void dumpDistribution() {
+        uint64_t cur_total = 0;
+        cout << "{ ";
+        cout << std::setprecision(DUMP_PRICISION + 3);
+        for (uint32_t i = 0; i < num_buckets; i++) {
+            float cur_time = time_per_bucket_ms * i + 0.5f * time_per_bucket_ms;
+            if ((cur_total < 0.5f * m_transactions) &&
+                (cur_total + m_buckets[i] >= 0.5f * m_transactions)) {
+                cout << "\"p50\":" << cur_time << ", ";
+            }
+            if ((cur_total < 0.9f * m_transactions) &&
+                (cur_total + m_buckets[i] >= 0.9f * m_transactions)) {
+                cout << "\"p90\":" << cur_time << ", ";
+            }
+            if ((cur_total < 0.95f * m_transactions) &&
+                (cur_total + m_buckets[i] >= 0.95f * m_transactions)) {
+                cout << "\"p95\":" << cur_time << ", ";
+            }
+            if ((cur_total < 0.99f * m_transactions) &&
+                (cur_total + m_buckets[i] >= 0.99f * m_transactions)) {
+                cout << "\"p99\": " << cur_time;
+            }
+            cur_total += m_buckets[i];
+        }
+        cout << "}";
+    }
+};
+// statistics of a process pair
+class PResults {
+   public:
+    int no_inherent = 0;
+    int no_sync = 0;
+    class Results other, fifo;
+    PResults() { fifo.setTrace(is_tracing); }
+
+    static PResults combine(const PResults& a, const PResults& b) {
+        PResults ret;
+        ret.no_inherent = a.no_inherent + b.no_inherent;
+        ret.no_sync = a.no_sync + b.no_sync;
+        ret.other = Results::combine(a.other, b.other);
+        ret.fifo = Results::combine(a.fifo, b.fifo);
+        return ret;
+    }
+
+    void dump(string name) {
+        int no_trans = other.getTransactions() + fifo.getTransactions();
+        double sync_ratio = (1.0 - (double)(no_sync) / no_trans);
+        cout << "\"" << name << "\":{\"SYNC\":\""
+             << ((sync_ratio > GOOD_SYNC_MIN) ? "GOOD" : "POOR") << "\","
+             << "\"S\":" << (no_trans - no_sync) << ",\"I\":" << no_trans << ","
+             << "\"R\":" << sync_ratio << "," << endl;
+        cout << "  \"other_ms\":";
+        other.dump();
+        cout << "," << endl;
+        cout << "  \"fifo_ms\": ";
+        fifo.dump();
+        cout << "," << endl;
+        cout << "  \"otherdis\":";
+        other.dumpDistribution();
+        cout << "," << endl;
+        cout << "  \"fifodis\": ";
+        fifo.dumpDistribution();
+        cout << endl;
+        cout << "}," << endl;
+    }
 };
 
-static string generateServiceName(int num) {
-    string serviceName = "hwbinderService" + to_string(num);
-    return serviceName;
-}
-
-// This private struct is used to pass the argument to threadStart
-// result: a pointer to Results
-// target: the terget service number
-typedef struct {
-    void* result;
-    int target;
-} thread_priv_t;
+struct threadArg {
+    void* result;  ///< pointer to PResults
+    int target;    ///< the terget service number
+};
 
 static void* threadStart(void* p) {
-    thread_priv_t* priv = (thread_priv_t*)p;
+    threadArg* priv = (threadArg*)p;
     int target = priv->target;
-    Results* results_fifo = (Results*)priv->result;
+    PResults* presults = (PResults*)priv->result;
     Tick sta, end;
 
-    threadDump("fifo-caller");
-    uint32_t call_sta = (threadPri() << 16) | sched_getcpu();
+    threadDumpPri("fifo-caller");
+    uint32_t call_sta = (threadGetPri() << 16) | sched_getcpu();
     sp<IScheduleTest> service = services[target];
+    asm("" ::: "memory");
     sta = tickNow();
     uint32_t ret = service->send(verbose, call_sta);
     end = tickNow();
-    results_fifo->add_time(tickNano(sta, end));
+    asm("" ::: "memory");
+    presults->fifo.addTime(tickNano(sta, end));
 
-    no_inherent += (ret >> 16) & 0xffff;
-    no_sync += ret & 0xffff;
+    presults->no_inherent += (ret >> 16) & 0xffff;
+    presults->no_sync += ret & 0xffff;
     return 0;
 }
 
 // create a fifo thread to transact and wait it to finished
-static void threadTransaction(int target, Results* results_fifo) {
-    thread_priv_t thread_priv;
+static void threadTransaction(int target, PResults* presults) {
+    threadArg thread_arg;
 
     void* dummy;
     pthread_t thread;
     pthread_attr_t attr;
     struct sched_param param;
-    thread_priv.target = target;
-    thread_priv.result = results_fifo;
+    thread_arg.target = target;
+    thread_arg.result = presults;
     ASSERT(!pthread_attr_init(&attr));
     ASSERT(!pthread_attr_setschedpolicy(&attr, SCHED_FIFO));
     param.sched_priority = sched_get_priority_max(SCHED_FIFO);
     ASSERT(!pthread_attr_setschedparam(&attr, &param));
-    ASSERT(!pthread_create(&thread, &attr, threadStart, &thread_priv));
+    ASSERT(!pthread_create(&thread, &attr, threadStart, &thread_arg));
     ASSERT(!pthread_join(thread, &dummy));
 }
 
 static void serviceFx(const string& serviceName, Pipe p) {
     // Start service.
-    sp<IScheduleTest> server = IScheduleTest::getService(serviceName, true);
-    status_t status = server->registerAsService(serviceName);
-    if (status != ::android::OK) {
+    if (registerPassthroughServiceImplementation<IScheduleTest>(serviceName) != ::android::OK) {
         cout << "Failed to register service " << serviceName.c_str() << endl;
         exit(EXIT_FAILURE);
     }
@@ -271,7 +352,7 @@ static void serviceFx(const string& serviceName, Pipe p) {
     p.signal();
     // wait for kill
     p.wait();
-    exit(EXIT_SUCCESS);
+    exit(0);
 }
 
 static Pipe makeServiceProces(string service_name) {
@@ -281,7 +362,7 @@ static Pipe makeServiceProces(string service_name) {
         // parent
         return move(get<0>(pipe_pair));
     } else {
-        threadDump("service");
+        threadDumpPri("service");
         // child
         serviceFx(service_name, move(get<1>(pipe_pair)));
         // never get here
@@ -291,10 +372,11 @@ static Pipe makeServiceProces(string service_name) {
 }
 
 static void clientFx(int num, int server_count, int iterations, Pipe p) {
-    Results results_other(false), results_fifo(trace);
+    PResults presults;
 
     for (int i = 0; i < server_count; i++) {
-        sp<IScheduleTest> service = IScheduleTest::getService(generateServiceName(i), pass_through);
+        sp<IScheduleTest> service =
+            IScheduleTest::getService("hwbinderService" + to_string(i), pass_through);
         ASSERT(service != nullptr);
         if (pass_through) {
             ASSERT(!service->isRemote());
@@ -316,39 +398,31 @@ static void clientFx(int num, int server_count, int iterations, Pipe p) {
         int target = num;
 
         // 1. transaction by fifo thread
-        threadTransaction(target, &results_fifo);
-        threadDump("other-caller");
+        threadTransaction(target, &presults);
+        threadDumpPri("other-caller");
 
-        uint32_t call_sta = (threadPri() << 16) | sched_getcpu();
+        uint32_t call_sta = (threadGetPri() << 16) | sched_getcpu();
         sp<IScheduleTest> service = services[target];
         // 2. transaction by other thread
+        asm("" ::: "memory");
         sta = tickNow();
         uint32_t ret = service->send(verbose, call_sta);
         end = tickNow();
-        results_other.add_time(tickNano(sta, end));
-        no_inherent += (ret >> 16) & 0xffff;
-        no_sync += ret & 0xffff;
+        asm("" ::: "memory");
+        presults.other.addTime(tickNano(sta, end));
+        presults.no_inherent += (ret >> 16) & 0xffff;
+        presults.no_sync += ret & 0xffff;
     }
     // tell main i'm done
     p.signal();
+
+    // wait to send result
+    p.wait();
+    p.send(presults);
+
     // wait for kill
     p.wait();
-    // Client for each pair dump here
-    int no_trans = iterations * 2;
-    double sync_ratio = (1.0 - (double)no_sync / no_trans);
-    cout << "\"P" << num << "\":{\"SYNC\":\"" << ((sync_ratio > GOOD_SYNC_MIN) ? "GOOD" : "POOR")
-         << "\","
-         << "\"S\":" << (no_trans - no_sync) << ",\"I\":" << no_trans << ","
-         << "\"R\":" << sync_ratio << "," << endl;
-
-    cout << "  \"other_ms\":";
-    results_other.dump();
-    cout << "," << endl;
-    cout << "  \"fifo_ms\": ";
-    results_fifo.dump();
-    cout << endl;
-    cout << "}," << endl;
-    exit(no_inherent);
+    exit(0);
 }
 
 static Pipe makeClientProcess(int num, int iterations, int no_pair) {
@@ -359,7 +433,7 @@ static Pipe makeClientProcess(int num, int iterations, int no_pair) {
         return move(get<0>(pipe_pair));
     } else {
         // child
-        threadDump("client");
+        threadDumpPri("client");
         clientFx(num, no_pair, iterations, move(get<1>(pipe_pair)));
         // never get here
         ASSERT(0);
@@ -379,9 +453,24 @@ static void signalAll(vector<Pipe>& v) {
     }
 }
 
+static void help() {
+    cout << "usage:" << endl;
+    cout << "-i 1              # number of iterations" << endl;
+    cout << "-pair 4           # number of process pairs" << endl;
+    cout << "-deadline_us 2500 # deadline in us" << endl;
+    cout << "-v                # debug" << endl;
+    cout << "-trace            # halt the trace on a dealine hit" << endl;
+    exit(0);
+}
 // This test is modified from frameworks/native/libs/binder/tests/sch-dbg.cpp
 // The difference is sch-dbg tests binder transaction and this one test
 // HwBinder transaction.
+// Test
+//
+//  libhwbinder_latency -i 1 -v
+//  libhwbinder_latency -i 10000 -pair 4
+//  atrace --async_start -c sched idle workq binder_driver freq && \
+//    libhwbinder_latency -i 10000 -pair 4 -trace
 int main(int argc, char** argv) {
     setenv("TREBLE_TESTING_OVERRIDE", "true", true);
 
@@ -389,15 +478,22 @@ int main(int argc, char** argv) {
     vector<Pipe> service_pipes;
 
     for (int i = 1; i < argc; i++) {
-        if (string(argv[i]) == "-passthrough") {
-            pass_through = true;
+        if (string(argv[i]) == "-h") {
+            help();
+        }
+        if (string(argv[i]) == "-m") {
+            if (!strcmp(argv[i + 1], "PASSTHROUGH")) {
+                pass_through = true;
+            }
+            i++;
+            continue;
         }
         if (string(argv[i]) == "-i") {
             iterations = atoi(argv[i + 1]);
             i++;
             continue;
         }
-        if (string(argv[i]) == "-pair") {
+        if (string(argv[i]) == "-pair" || string(argv[i]) == "-w") {
             no_pair = atoi(argv[i + 1]);
             i++;
             continue;
@@ -423,28 +519,28 @@ int main(int argc, char** argv) {
         // /sys/kernel/debug/tracing and halt the process. The tracelog is
         // then available on /sys/kernel/debug/trace
         if (string(argv[i]) == "-trace") {
-            trace = 1;
+            is_tracing = 1;
         }
     }
     if (!pass_through) {
         // Create services.
         for (int i = 0; i < no_pair; i++) {
-            string serviceName = generateServiceName(i);
-            service_pipes.push_back(makeServiceProces(serviceName));
+            service_pipes.push_back(makeServiceProces("hwbinderService" + to_string(i)));
         }
         // Wait until all services are up.
         waitAll(service_pipes);
     }
-    if (trace && !traceIsOn()) {
+    if (is_tracing && !traceIsOn()) {
         cout << "trace is not running" << endl;
         cout << "check " << trace_path + "/tracing_on" << endl;
         cout << "use atrace --async_start first" << endl;
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
-    threadDump("main");
+    threadDumpPri("main");
     cout << "{" << endl;
     cout << "\"cfg\":{\"pair\":" << (no_pair) << ",\"iterations\":" << iterations
-         << ",\"deadline_us\":" << deadline_us << "}," << endl;
+         << ",\"deadline_us\":" << deadline_us << ",\"passthrough\":" << pass_through << "},"
+         << endl;
 
     // the main process fork 2 processes for each pairs
     // 1 server + 1 client
@@ -461,26 +557,28 @@ int main(int argc, char** argv) {
     // wait client to finished
     waitAll(client_pipes);
 
-    if (!pass_through) {
-        // Kill all the services.
-        for (int i = 0; i < no_pair; i++) {
-            int status;
-            service_pipes[i].signal();
-            wait(&status);
-            if (status != 0) {
-                cout << "nonzero child status" << status << endl;
-            }
-        }
-    }
+    // collect all results
+    signalAll(client_pipes);
+    PResults total, presults[no_pair];
     for (int i = 0; i < no_pair; i++) {
-        int status;
-        client_pipes[i].signal();
-        wait(&status);
-        // the exit status is number of transactions without priority inheritance
-        // detected in the child process
-        no_inherent += status;
+        client_pipes[i].recv(presults[i]);
+        total = PResults::combine(total, presults[i]);
+    }
+    total.dump("ALL");
+    for (int i = 0; i < no_pair; i++) {
+        presults[i].dump("P" + to_string(i));
+    }
+
+    if (!pass_through) {
+        signalAll(service_pipes);
+    }
+    int no_inherent = 0;
+    for (int i = 0; i < no_pair; i++) {
+        no_inherent += presults[i].no_inherent;
     }
     cout << "\"inheritance\": " << (no_inherent == 0 ? "\"PASS\"" : "\"FAIL\"") << endl;
     cout << "}" << endl;
+    // kill all
+    signalAll(client_pipes);
     return -no_inherent;
 }
