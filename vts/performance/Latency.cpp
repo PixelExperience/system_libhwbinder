@@ -14,28 +14,18 @@
  * limitations under the License.
  */
 #include <android/hardware/tests/libhwbinder/1.0/IScheduleTest.h>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <list>
-#include <string>
-#include <tuple>
-#include <vector>
-
 #include <hidl/LegacySupport.h>
 #include <pthread.h>
 #include <sys/wait.h>
-#include <unistd.h>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include "PerfTest.h"
 
-using namespace std;
-using namespace android;
-using namespace android::hardware;
-
-using android::hardware::tests::libhwbinder::V1_0::IScheduleTest;
-
+#ifdef ASSERT
+#undef ASSERT
+#endif
 #define ASSERT(cond)                                                                              \
     do {                                                                                          \
         if (!(cond)) {                                                                            \
@@ -44,57 +34,67 @@ using android::hardware::tests::libhwbinder::V1_0::IScheduleTest;
         }                                                                                         \
     } while (0)
 
-vector<sp<IScheduleTest> > services;
+#define REQUIRE(stat)      \
+    do {                   \
+        int cond = (stat); \
+        ASSERT(cond);      \
+    } while (0)
 
-// the ratio that the service is synced on the same cpu beyond
-// GOOD_SYNC_MIN is considered as good
-#define GOOD_SYNC_MIN (0.6)
+using android::hardware::registerPassthroughServiceImplementation;
+using android::hardware::tests::libhwbinder::V1_0::IScheduleTest;
+using android::sp;
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::fstream;
+using std::left;
+using std::ios;
+using std::get;
+using std::move;
+using std::to_string;
+using std::setprecision;
+using std::setw;
+using std::string;
+using std::vector;
 
-#define DUMP_PRICISION 2
-
-string trace_path = "/sys/kernel/debug/tracing";
+static vector<sp<IScheduleTest> > services;
 
 // default arguments
-bool dump_raw_data = false;
-int no_pair = 1;
-int iterations = 100;
-int verbose = 0;
-int is_tracing;
-bool pass_through = false;
+static bool dump_raw_data = false;
+static int no_pair = 1;
+static int iterations = 100;
+static int verbose = 0;
+static int is_tracing;
+static bool pass_through = false;
 // the deadline latency that we are interested in
-uint64_t deadline_us = 2500;
+static uint64_t deadline_us = 2500;
 
 static bool traceIsOn() {
     fstream file;
-    file.open(trace_path + "/tracing_on", ios::in);
+    file.open(TRACE_PATH "/tracing_on", ios::in);
     char on;
     file >> on;
     file.close();
     return on == '1';
 }
 
-static void traceStop() {
-    ofstream file;
-    file.open(trace_path + "/tracing_on", ios::out | ios::trunc);
-    file << '0' << endl;
-    file.close();
-}
-
 static int threadGetPri() {
-    struct sched_param param;
+    sched_param param;
     int policy;
-    ASSERT(!pthread_getschedparam(pthread_self(), &policy, &param));
+    REQUIRE(!pthread_getschedparam(pthread_self(), &policy, &param));
     return param.sched_priority;
 }
 
 static void threadDumpPri(const char* prefix) {
-    struct sched_param param;
+    sched_param param;
     int policy;
-    if (!verbose) return;
+    if (!verbose) {
+        return;
+    }
     cout << "--------------------------------------------------" << endl;
     cout << setw(12) << left << prefix << " pid: " << getpid() << " tid: " << gettid()
          << " cpu: " << sched_getcpu() << endl;
-    ASSERT(!pthread_getschedparam(pthread_self(), &policy, &param));
+    REQUIRE(!pthread_getschedparam(pthread_self(), &policy, &param));
     string s =
         (policy == SCHED_OTHER)
             ? "SCHED_OTHER"
@@ -103,244 +103,13 @@ static void threadDumpPri(const char* prefix) {
     return;
 }
 
-// This IPC class is widely used in binder/hwbinder tests.
-// The common usage is the main process to create the Pipe and forks.
-// Both parent and child hold a object and each wait() on parent
-// needs a signal() on the child to wake up and vice versa.
-class Pipe {
-    int m_readFd;
-    int m_writeFd;
-    Pipe(int readFd, int writeFd) : m_readFd{readFd}, m_writeFd{writeFd} {}
-    Pipe(const Pipe&) = delete;
-    Pipe& operator=(const Pipe&) = delete;
-    Pipe& operator=(const Pipe&&) = delete;
-
-   public:
-    Pipe(Pipe&& rval) noexcept {
-        m_readFd = rval.m_readFd;
-        m_writeFd = rval.m_writeFd;
-        rval.m_readFd = 0;
-        rval.m_writeFd = 0;
-    }
-    ~Pipe() {
-        if (m_readFd) close(m_readFd);
-        if (m_writeFd) close(m_writeFd);
-    }
-    void signal() {
-        bool val = true;
-        int error = write(m_writeFd, &val, sizeof(val));
-        ASSERT(error >= 0);
-    };
-    void wait() {
-        bool val = false;
-        int error = read(m_readFd, &val, sizeof(val));
-        ASSERT(error >= 0);
-    }
-    template <typename T>
-    void send(const T& v) {
-        int error = write(m_writeFd, &v, sizeof(T));
-        ASSERT(error >= 0);
-    }
-    template <typename T>
-    void recv(T& v) {
-        int error = read(m_readFd, &v, sizeof(T));
-        ASSERT(error >= 0);
-    }
-    static tuple<Pipe, Pipe> createPipePair() {
-        int a[2];
-        int b[2];
-
-        int error1 = pipe(a);
-        int error2 = pipe(b);
-        ASSERT(error1 >= 0);
-        ASSERT(error2 >= 0);
-
-        return make_tuple(Pipe(a[0], b[1]), Pipe(b[0], a[1]));
-    }
-};
-
-typedef chrono::time_point<chrono::high_resolution_clock> Tick;
-
-static inline Tick tickNow() {
-    return chrono::high_resolution_clock::now();
-}
-
-static inline uint64_t tickNano(Tick& sta, Tick& end) {
-    return uint64_t(chrono::duration_cast<chrono::nanoseconds>(end - sta).count());
-}
-
-// statistics of latency
-class Results {
-    static const uint32_t num_buckets = 128;
-    static const uint64_t max_time_bucket = 50ull * 1000000;
-    static const uint64_t time_per_bucket = max_time_bucket / num_buckets;
-    static constexpr float time_per_bucket_ms = time_per_bucket / 1.0E6;
-
-    uint64_t m_best = 0xffffffffffffffffULL;
-    uint64_t m_worst = 0;
-    uint64_t m_transactions = 0;
-    uint64_t m_total_time = 0;
-    uint64_t m_miss = 0;
-    uint32_t m_buckets[num_buckets] = {0};  ///< statistics for the distribution
-    list<uint64_t>* raw_data = nullptr;     ///< list for raw-data
-    bool tracing = false;                   ///< halt the trace log on a deadline miss
-    bool raw_dump = false;                  ///< record the raw data for the dump after
-
-   public:
-    void setTrace(bool _tracing) { tracing = _tracing; }
-    inline uint64_t getTransactions() { return m_transactions; }
-    inline bool missDeadline(uint64_t nano) { return nano > deadline_us * 1000; }
-    // Combine two sets of latency data points and update the aggregation info.
-    static Results combine(const Results& a, const Results& b) {
-        Results ret;
-        for (uint32_t i = 0; i < num_buckets; i++) {
-            ret.m_buckets[i] = a.m_buckets[i] + b.m_buckets[i];
-        }
-        ret.m_worst = max(a.m_worst, b.m_worst);
-        ret.m_best = min(a.m_best, b.m_best);
-        ret.m_transactions = a.m_transactions + b.m_transactions;
-        ret.m_miss = a.m_miss + b.m_miss;
-        ret.m_total_time = a.m_total_time + b.m_total_time;
-        return ret;
-    }
-    // add a new transaction latency record
-    void addTime(uint64_t nano) {
-        m_buckets[min(nano, max_time_bucket - 1) / time_per_bucket] += 1;
-        m_best = min(nano, m_best);
-        m_worst = max(nano, m_worst);
-        if (raw_dump) {
-            raw_data->push_back(nano);
-        }
-        m_transactions += 1;
-        m_total_time += nano;
-        if (missDeadline(nano)) m_miss++;
-        if (missDeadline(nano) && tracing) {
-            // There might be multiple process pair running the test concurrently
-            // each may execute following statements and only the first one actually
-            // stop the trace and any traceStop() afterthen has no effect.
-            traceStop();
-            cout << endl;
-            cout << "deadline triggered: halt & stop trace" << endl;
-            cout << "log:" + trace_path + "/trace" << endl;
-            cout << endl;
-            exit(1);
-        }
-    }
-    // setup raw dump
-    void setupRawData() {
-        raw_dump = true;
-        if (raw_data == nullptr)
-            raw_data = new list<uint64_t>;
-        else
-            raw_data->clear();
-    }
-    // dump and flush the raw data
-    void flushRawData() {
-        if (raw_dump) {
-            bool first = true;
-            cout << "[";
-            for (auto nano : *raw_data) {
-                cout << (first ? "" : ",") << to_string(nano);
-                first = false;
-            }
-            cout << "]," << endl;
-            delete raw_data;
-            raw_data = nullptr;
-        }
-    }
-    // dump average, best, worst latency in json
-    void dump() {
-        double best = (double)m_best / 1.0E6;
-        double worst = (double)m_worst / 1.0E6;
-        double average = (double)m_total_time / m_transactions / 1.0E6;
-        int W = DUMP_PRICISION + 2;
-        cout << std::setprecision(DUMP_PRICISION) << "{ \"avg\":" << setw(W) << left << average
-             << ", \"wst\":" << setw(W) << left << worst << ", \"bst\":" << setw(W) << left << best
-             << ", \"miss\":" << left << m_miss
-             << ", \"meetR\":" << setprecision(DUMP_PRICISION + 3) << left
-             << (1.0 - (double)m_miss / m_transactions) << "}";
-    }
-    // dump latency distribution in json
-    void dumpDistribution() {
-        uint64_t cur_total = 0;
-        cout << "{ ";
-        cout << std::setprecision(DUMP_PRICISION + 3);
-        for (uint32_t i = 0; i < num_buckets; i++) {
-            float cur_time = time_per_bucket_ms * i + 0.5f * time_per_bucket_ms;
-            if ((cur_total < 0.5f * m_transactions) &&
-                (cur_total + m_buckets[i] >= 0.5f * m_transactions)) {
-                cout << "\"p50\":" << cur_time << ", ";
-            }
-            if ((cur_total < 0.9f * m_transactions) &&
-                (cur_total + m_buckets[i] >= 0.9f * m_transactions)) {
-                cout << "\"p90\":" << cur_time << ", ";
-            }
-            if ((cur_total < 0.95f * m_transactions) &&
-                (cur_total + m_buckets[i] >= 0.95f * m_transactions)) {
-                cout << "\"p95\":" << cur_time << ", ";
-            }
-            if ((cur_total < 0.99f * m_transactions) &&
-                (cur_total + m_buckets[i] >= 0.99f * m_transactions)) {
-                cout << "\"p99\": " << cur_time;
-            }
-            cur_total += m_buckets[i];
-        }
-        cout << "}";
-    }
-};
-// statistics of a process pair
-class PResults {
-   public:
-    static PResults combine(const PResults& a, const PResults& b) {
-        PResults ret;
-        ret.no_inherent = a.no_inherent + b.no_inherent;
-        ret.no_sync = a.no_sync + b.no_sync;
-        ret.other = Results::combine(a.other, b.other);
-        ret.fifo = Results::combine(a.fifo, b.fifo);
-        return ret;
-    }
-
-    int no_inherent = 0;  ///< #transactions that does not inherit priority
-    int no_sync = 0;      ///< #transactions that are not synced
-    Results other;        ///< statistics of CFS-other transactions
-    Results fifo;         ///< statistics of RT-fifo transactions
-    PResults() {
-        fifo.setTrace(is_tracing);
-        if (dump_raw_data) fifo.setupRawData();
-    }
-
-    // dump and flush the raw data
-    void flushRawData() { fifo.flushRawData(); }
-
-    void dump() {
-        int no_trans = other.getTransactions() + fifo.getTransactions();
-        double sync_ratio = (1.0 - (double)(no_sync) / no_trans);
-        cout << "{\"SYNC\":\"" << ((sync_ratio > GOOD_SYNC_MIN) ? "GOOD" : "POOR") << "\","
-             << "\"S\":" << (no_trans - no_sync) << ",\"I\":" << no_trans << ","
-             << "\"R\":" << sync_ratio << "," << endl;
-        cout << "  \"other_ms\":";
-        other.dump();
-        cout << "," << endl;
-        cout << "  \"fifo_ms\": ";
-        fifo.dump();
-        cout << "," << endl;
-        cout << "  \"otherdis\":";
-        other.dumpDistribution();
-        cout << "," << endl;
-        cout << "  \"fifodis\": ";
-        fifo.dumpDistribution();
-        cout << endl;
-        cout << "}," << endl;
-    }
-};
-
-struct threadArg {
+struct ThreadArg {
     void* result;  ///< pointer to PResults
     int target;    ///< the terget service number
 };
 
 static void* threadStart(void* p) {
-    threadArg* priv = (threadArg*)p;
+    ThreadArg* priv = (ThreadArg*)p;
     int target = priv->target;
     PResults* presults = (PResults*)priv->result;
     Tick sta, end;
@@ -348,40 +117,37 @@ static void* threadStart(void* p) {
     threadDumpPri("fifo-caller");
     uint32_t call_sta = (threadGetPri() << 16) | sched_getcpu();
     sp<IScheduleTest> service = services[target];
-    asm("" ::: "memory");
-    sta = tickNow();
+    TICK_NOW(sta);
     uint32_t ret = service->send(verbose, call_sta);
-    end = tickNow();
-    asm("" ::: "memory");
-    presults->fifo.addTime(tickNano(sta, end));
+    TICK_NOW(end);
+    presults->fifo.addTime(tickDiffNS(sta, end));
 
-    presults->no_inherent += (ret >> 16) & 0xffff;
-    presults->no_sync += ret & 0xffff;
+    presults->nNotInherent += (ret >> 16) & 0xffff;
+    presults->nNotSync += ret & 0xffff;
     return 0;
 }
 
 // create a fifo thread to transact and wait it to finished
 static void threadTransaction(int target, PResults* presults) {
-    threadArg thread_arg;
-
+    ThreadArg thread_arg;
     void* dummy;
     pthread_t thread;
     pthread_attr_t attr;
-    struct sched_param param;
+    sched_param param;
     thread_arg.target = target;
     thread_arg.result = presults;
-    ASSERT(!pthread_attr_init(&attr));
-    ASSERT(!pthread_attr_setschedpolicy(&attr, SCHED_FIFO));
+    REQUIRE(!pthread_attr_init(&attr));
+    REQUIRE(!pthread_attr_setschedpolicy(&attr, SCHED_FIFO));
     param.sched_priority = sched_get_priority_max(SCHED_FIFO);
-    ASSERT(!pthread_attr_setschedparam(&attr, &param));
-    ASSERT(!pthread_create(&thread, &attr, threadStart, &thread_arg));
-    ASSERT(!pthread_join(thread, &dummy));
+    REQUIRE(!pthread_attr_setschedparam(&attr, &param));
+    REQUIRE(!pthread_create(&thread, &attr, threadStart, &thread_arg));
+    REQUIRE(!pthread_join(thread, &dummy));
 }
 
 static void serviceFx(const string& serviceName, Pipe p) {
     // Start service.
     if (registerPassthroughServiceImplementation<IScheduleTest>(serviceName) != ::android::OK) {
-        cout << "Failed to register service " << serviceName.c_str() << endl;
+        cerr << "Failed to register service " << serviceName.c_str() << endl;
         exit(EXIT_FAILURE);
     }
     // tell main I'm init-ed
@@ -410,6 +176,11 @@ static Pipe makeServiceProces(string service_name) {
 static void clientFx(int num, int server_count, int iterations, Pipe p) {
     PResults presults;
 
+    presults.fifo.setTracingMode(is_tracing, deadline_us);
+    if (dump_raw_data) {
+        presults.fifo.setupRawData();
+    }
+
     for (int i = 0; i < server_count; i++) {
         sp<IScheduleTest> service =
             IScheduleTest::getService("hwbinderService" + to_string(i), pass_through);
@@ -427,7 +198,7 @@ static void clientFx(int num, int server_count, int iterations, Pipe p) {
     p.wait();
 
     // Client for each pair iterates here
-    // each iterations contains exatcly 2 transactions
+    // each iterations contains exactly 2 transactions
     for (int i = 0; i < iterations; i++) {
         Tick sta, end;
         // the target is paired to make it easier to diagnose
@@ -440,14 +211,12 @@ static void clientFx(int num, int server_count, int iterations, Pipe p) {
         uint32_t call_sta = (threadGetPri() << 16) | sched_getcpu();
         sp<IScheduleTest> service = services[target];
         // 2. transaction by other thread
-        asm("" ::: "memory");
-        sta = tickNow();
+        TICK_NOW(sta);
         uint32_t ret = service->send(verbose, call_sta);
-        end = tickNow();
-        asm("" ::: "memory");
-        presults.other.addTime(tickNano(sta, end));
-        presults.no_inherent += (ret >> 16) & 0xffff;
-        presults.no_sync += ret & 0xffff;
+        TICK_NOW(end);
+        presults.other.addTime(tickDiffNS(sta, end));
+        presults.nNotInherent += (ret >> 16) & 0xffff;
+        presults.nNotSync += ret & 0xffff;
     }
     // tell main i'm done
     p.signal();
@@ -459,7 +228,8 @@ static void clientFx(int num, int server_count, int iterations, Pipe p) {
         presults.flushRawData();
     }
     cout.flush();
-    p.send(presults);
+    int sent = p.send(presults);
+    ASSERT(sent >= 0);
 
     // wait for kill
     p.wait();
@@ -504,10 +274,8 @@ static void help() {
     cout << "-trace            # halt the trace on a dealine hit" << endl;
     exit(0);
 }
-// This test is modified from frameworks/native/libs/binder/tests/sch-dbg.cpp
-// The difference is sch-dbg tests binder transaction and this one test
-// HwBinder transaction.
-// Test
+
+// Test:
 //
 //  libhwbinder_latency -i 1 -v
 //  libhwbinder_latency -i 10000 -pair 4
@@ -576,9 +344,9 @@ int main(int argc, char** argv) {
         waitAll(service_pipes);
     }
     if (is_tracing && !traceIsOn()) {
-        cout << "trace is not running" << endl;
-        cout << "check " << trace_path + "/tracing_on" << endl;
-        cout << "use atrace --async_start first" << endl;
+        cerr << "trace is not running" << endl;
+        cerr << "check " << TRACE_PATH "/tracing_on" << endl;
+        cerr << "use atrace --async_start first" << endl;
         exit(EXIT_FAILURE);
     }
     threadDumpPri("main");
@@ -606,7 +374,8 @@ int main(int argc, char** argv) {
     PResults total, presults[no_pair];
     for (int i = 0; i < no_pair; i++) {
         client_pipes[i].signal();
-        client_pipes[i].recv(presults[i]);
+        int recvd = client_pipes[i].recv(presults[i]);
+        ASSERT(recvd >= 0);
         total = PResults::combine(total, presults[i]);
     }
     cout << "\"ALL\":";
@@ -619,13 +388,13 @@ int main(int argc, char** argv) {
     if (!pass_through) {
         signalAll(service_pipes);
     }
-    int no_inherent = 0;
+    int nNotInherent = 0;
     for (int i = 0; i < no_pair; i++) {
-        no_inherent += presults[i].no_inherent;
+        nNotInherent += presults[i].nNotInherent;
     }
-    cout << "\"inheritance\": " << (no_inherent == 0 ? "\"PASS\"" : "\"FAIL\"") << endl;
+    cout << "\"inheritance\": " << (nNotInherent == 0 ? "\"PASS\"" : "\"FAIL\"") << endl;
     cout << "}" << endl;
     // kill all
     signalAll(client_pipes);
-    return -no_inherent;
+    return -nNotInherent;
 }
