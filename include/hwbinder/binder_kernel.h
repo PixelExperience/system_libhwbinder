@@ -109,6 +109,7 @@ enum {
 enum {
         FLAT_BINDER_FLAG_SCHEDPOLICY_MASK = 0x600,
         FLAT_BINDER_FLAG_SCHEDPOLICY_SHIFT = 9,
+        FLAT_BINDER_FLAG_INHERIT_RT = 0x800,
 };
 
 struct binder_node_debug_info {
