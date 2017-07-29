@@ -906,28 +906,29 @@ status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
     int32_t handle, uint32_t code, const Parcel& data, status_t* statusBuffer)
 {
     binder_transaction_data_sg tr_sg;
-    tr_sg.tr.target.ptr = 0; /* Don't pass uninitialized stack data to a remote process */
-    tr_sg.tr.target.handle = handle;
-    tr_sg.tr.code = code;
-    tr_sg.tr.flags = binderFlags;
-    tr_sg.tr.cookie = 0;
-    tr_sg.tr.sender_pid = 0;
-    tr_sg.tr.sender_euid = 0;
+    /* Don't pass uninitialized stack data to a remote process */
+    tr_sg.transaction_data.target.ptr = 0;
+    tr_sg.transaction_data.target.handle = handle;
+    tr_sg.transaction_data.code = code;
+    tr_sg.transaction_data.flags = binderFlags;
+    tr_sg.transaction_data.cookie = 0;
+    tr_sg.transaction_data.sender_pid = 0;
+    tr_sg.transaction_data.sender_euid = 0;
 
     const status_t err = data.errorCheck();
     if (err == NO_ERROR) {
-        tr_sg.tr.data_size = data.ipcDataSize();
-        tr_sg.tr.data.ptr.buffer = data.ipcData();
-        tr_sg.tr.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t);
-        tr_sg.tr.data.ptr.offsets = data.ipcObjects();
+        tr_sg.transaction_data.data_size = data.ipcDataSize();
+        tr_sg.transaction_data.data.ptr.buffer = data.ipcData();
+        tr_sg.transaction_data.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t);
+        tr_sg.transaction_data.data.ptr.offsets = data.ipcObjects();
         tr_sg.buffers_size = data.ipcBufferSize();
     } else if (statusBuffer) {
-        tr_sg.tr.flags |= TF_STATUS_CODE;
+        tr_sg.transaction_data.flags |= TF_STATUS_CODE;
         *statusBuffer = err;
-        tr_sg.tr.data_size = sizeof(status_t);
-        tr_sg.tr.data.ptr.buffer = reinterpret_cast<uintptr_t>(statusBuffer);
-        tr_sg.tr.offsets_size = 0;
-        tr_sg.tr.data.ptr.offsets = 0;
+        tr_sg.transaction_data.data_size = sizeof(status_t);
+        tr_sg.transaction_data.data.ptr.buffer = reinterpret_cast<uintptr_t>(statusBuffer);
+        tr_sg.transaction_data.offsets_size = 0;
+        tr_sg.transaction_data.data.ptr.offsets = 0;
         tr_sg.buffers_size = 0;
     } else {
         return (mLastError = err);
