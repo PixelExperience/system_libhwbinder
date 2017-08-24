@@ -36,7 +36,6 @@ using android::String16;
 
 // libbinder:
 using android::getService;
-using android::BnInterface;
 using android::defaultServiceManager;
 using android::ProcessState;
 using android::binder::Status;
