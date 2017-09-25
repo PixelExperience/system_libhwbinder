@@ -533,6 +533,11 @@ int IPCThreadState::setupPolling(int* fd)
         return -EBADF;
     }
 
+    // Tells the kernel to not spawn any additional binder threads,
+    // as that won't work with polling. Also, the caller is responsible
+    // for subsequently calling handlePolledCommands()
+    mProcess->setThreadPoolConfiguration(1, true /* callerWillJoin */);
+
     mOut.writeInt32(BC_ENTER_LOOPER);
     *fd = mProcess->mDriverFD;
     return 0;
