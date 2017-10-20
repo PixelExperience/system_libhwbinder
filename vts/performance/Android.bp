@@ -17,6 +17,10 @@
 cc_defaults {
     name: "libhwbinder_test_defaults",
 
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libhidlbase",
         "libhidltransport",
@@ -40,6 +44,10 @@ cc_benchmark {
     name: "libbinder_benchmark",
 
     srcs: ["Benchmark_binder.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libbinder",
         "libutils",

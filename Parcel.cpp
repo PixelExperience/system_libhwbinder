@@ -750,7 +750,6 @@ restart_write:
                 break;
             }
             case BINDER_TYPE_FD: {
-                const binder_fd_object *fd_obj = reinterpret_cast<const binder_fd_object*>(hdr);
                 // remember if it's a file descriptor
                 if (!mAllowFds) {
                     // fail before modifying our object index
@@ -1051,7 +1050,6 @@ status_t Parcel::writeNativeHandleNoDup(const native_handle_t *handle,
     struct binder_fd_array_object fd_array;
     size_t buffer_handle;
     status_t status = OK;
-    uint32_t flags = 0;
 
     if (handle == nullptr) {
         status = writeUint64(0);
@@ -1563,8 +1561,6 @@ bool Parcel::verifyBufferObject(const binder_buffer_object *buffer_obj,
 status_t Parcel::readBuffer(size_t buffer_size, size_t *buffer_handle,
                             uint32_t flags, size_t parent, size_t parentOffset,
                             const void **buffer_out) const {
-
-    status_t status = OK;
 
     const binder_buffer_object* buffer_obj = readObject<binder_buffer_object>(buffer_handle);
 
