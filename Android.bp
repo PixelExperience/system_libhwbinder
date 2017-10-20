@@ -59,5 +59,8 @@ cc_library_shared {
         },
     },
 
-    cflags: ["-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 }
