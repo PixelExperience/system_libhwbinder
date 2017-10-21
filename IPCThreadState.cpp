@@ -710,6 +710,9 @@ IPCThreadState::IPCThreadState()
     clearCaller();
     mIn.setDataCapacity(256);
     mOut.setDataCapacity(256);
+
+    // TODO(b/67742352): remove this variable from the class
+    (void)mMyThreadId;
 }
 
 IPCThreadState::~IPCThreadState()
