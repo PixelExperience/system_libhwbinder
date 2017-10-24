@@ -321,6 +321,10 @@ status_t ProcessState::setThreadPoolConfiguration(size_t maxThreads, bool caller
     return result;
 }
 
+size_t ProcessState::getMaxThreads() {
+    return mMaxThreads;
+}
+
 void ProcessState::giveThreadPoolName() {
     androidSetThreadName( makeBinderThreadName().string() );
 }
