@@ -62,6 +62,8 @@ class BenchmarkServiceAidl : public BnBenchmark {
 
 bool startServer() {
     BenchmarkServiceAidl *service = new BenchmarkServiceAidl();
+    // Tells the kernel to spawn zero threads, but startThreadPool() below will still spawn one.
+    ProcessState::self()->setThreadPoolMaxThreadCount(0);
     defaultServiceManager()->addService(String16(kServiceName),
                                         service);
     ProcessState::self()->startThreadPool();
