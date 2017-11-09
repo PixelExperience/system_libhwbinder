@@ -16,7 +16,7 @@ subdirs = [
     "vts/performance",
 ]
 
-cc_library_shared {
+cc_library {
     name: "libhwbinder",
     shared_libs: [
         "libbase",
