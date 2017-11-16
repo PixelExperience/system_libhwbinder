@@ -30,32 +30,10 @@ enum {
 	BINDER_BUFFER_FLAG_REF          = 1U << 1,
 };
 
-/* A binder_fd_array object represents an array of file
- * descriptors embedded in a binder_buffer_object. The
- * kernel driver will fix up all file descriptors in
- * the parent buffer specified by parent and parent_offset
- */
-struct binder_fd_array_object {
-	struct binder_object_header	hdr;
-	__u32			_pad; /* hdr is 4 bytes, ensure 8-byte alignment of next fields */
-	binder_size_t		num_fds;
-	binder_size_t		parent; /* index of parent in objects array */
-	binder_size_t		parent_offset; /* offset of pointer in parent */
-};
-
 enum {
         FLAT_BINDER_FLAG_SCHEDPOLICY_MASK = 0x600,
         FLAT_BINDER_FLAG_SCHEDPOLICY_SHIFT = 9,
         FLAT_BINDER_FLAG_INHERIT_RT = 0x800,
 };
-
-struct binder_node_debug_info {
-	binder_uintptr_t ptr;
-	binder_uintptr_t cookie;
-	__u32 has_strong_ref;
-	__u32 has_weak_ref;
-};
-
-#define BINDER_GET_NODE_DEBUG_INFO _IOWR('b', 11, struct binder_node_debug_info)
 
 #endif // ANDROID_HARDWARE_BINDER_KERNEL_H
