@@ -64,6 +64,7 @@ public:
             void                spawnPooledThread(bool isMain);
 
             status_t            setThreadPoolConfiguration(size_t maxThreads, bool callerJoinsPool);
+            size_t              getMaxThreads();
             void                giveThreadPoolName();
 
             ssize_t             getKernelReferences(size_t count, uintptr_t* buf);
