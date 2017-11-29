@@ -502,6 +502,7 @@ void IPCThreadState::joinThreadPool(bool isMain)
     mOut.writeInt32(isMain ? BC_ENTER_LOOPER : BC_REGISTER_LOOPER);
 
     status_t result;
+    mIsLooper = true;
     do {
         processPendingDerefs();
         // now get the next command to be processed, waiting if necessary
@@ -524,6 +525,7 @@ void IPCThreadState::joinThreadPool(bool isMain)
         (void*)pthread_self(), getpid(), result);
 
     mOut.writeInt32(BC_EXIT_LOOPER);
+    mIsLooper = false;
     talkWithDriver(false);
 }
 
@@ -960,6 +962,11 @@ status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
 void IPCThreadState::setTheContextObject(sp<BHwBinder> obj)
 {
     mContextObject = obj;
+}
+
+bool IPCThreadState::isLooperThread()
+{
+    return mIsLooper;
 }
 
 status_t IPCThreadState::executeCommand(int32_t cmd)
