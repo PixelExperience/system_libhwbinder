@@ -91,6 +91,8 @@ public:
 
             // Service manager registration
             void                setTheContextObject(sp<BHwBinder> obj);
+
+            bool                isLooperThread();
 private:
                                 IPCThreadState();
                                 ~IPCThreadState();
@@ -130,6 +132,7 @@ private:
             int32_t             mStrictModePolicy;
             int32_t             mLastTransactionBinderFlags;
             sp<BHwBinder>         mContextObject;
+            bool                mIsLooper;
 };
 
 }; // namespace hardware
