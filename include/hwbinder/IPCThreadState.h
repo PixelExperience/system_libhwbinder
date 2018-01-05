@@ -93,6 +93,8 @@ public:
             void                setTheContextObject(sp<BHwBinder> obj);
 
             bool                isLooperThread();
+            bool                isOnlyBinderThread();
+
 private:
                                 IPCThreadState();
                                 ~IPCThreadState();
@@ -133,6 +135,7 @@ private:
             int32_t             mLastTransactionBinderFlags;
             sp<BHwBinder>         mContextObject;
             bool                mIsLooper;
+            bool mIsPollingThread;
 };
 
 }; // namespace hardware
