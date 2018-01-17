@@ -539,6 +539,7 @@ int IPCThreadState::setupPolling(int* fd)
     // as that won't work with polling. Also, the caller is responsible
     // for subsequently calling handlePolledCommands()
     mProcess->setThreadPoolConfiguration(1, true /* callerWillJoin */);
+    mIsPollingThread = true;
 
     mOut.writeInt32(BC_ENTER_LOOPER);
     *fd = mProcess->mDriverFD;
@@ -707,7 +708,8 @@ IPCThreadState::IPCThreadState()
       mMyThreadId(gettid()),
       mStrictModePolicy(0),
       mLastTransactionBinderFlags(0),
-      mIsLooper(false) {
+      mIsLooper(false),
+      mIsPollingThread(false) {
     pthread_setspecific(gTLS, this);
     clearCaller();
     mIn.setDataCapacity(256);
@@ -967,6 +969,10 @@ void IPCThreadState::setTheContextObject(sp<BHwBinder> obj)
 bool IPCThreadState::isLooperThread()
 {
     return mIsLooper;
+}
+
+bool IPCThreadState::isOnlyBinderThread() {
+    return (mIsLooper && mProcess->mMaxThreads <= 1) || mIsPollingThread;
 }
 
 status_t IPCThreadState::executeCommand(int32_t cmd)
