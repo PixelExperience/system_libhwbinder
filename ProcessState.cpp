@@ -18,10 +18,10 @@
 
 #include <hwbinder/ProcessState.h>
 
+#include <cutils/atomic.h>
 #include <hwbinder/BpHwBinder.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/binder_kernel.h>
-#include <utils/Atomic.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
