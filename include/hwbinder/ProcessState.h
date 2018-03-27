@@ -37,6 +37,8 @@ class ProcessState : public virtual RefBase
 public:
     static  sp<ProcessState>    self();
     static  sp<ProcessState>    selfOrNull();
+    // Note: don't call self() or selfOrNull() before initWithMmapSize()
+    static  sp<ProcessState>    initWithMmapSize(size_t mmapSize); // size in bytes
 
             void                setContextObject(const sp<IBinder>& object);
             sp<IBinder>         getContextObject(const sp<IBinder>& caller);
@@ -68,11 +70,11 @@ public:
             void                giveThreadPoolName();
 
             ssize_t             getKernelReferences(size_t count, uintptr_t* buf);
-
+            size_t              getMmapSize();
 private:
     friend class IPCThreadState;
 
-                                ProcessState();
+                                ProcessState(size_t mmap_size);
                                 ~ProcessState();
 
                                 ProcessState(const ProcessState& o);
@@ -115,6 +117,7 @@ private:
             bool                mThreadPoolStarted;
             bool                mSpawnThreadOnStart;
     volatile int32_t            mThreadPoolSeq;
+            size_t              mMmapSize;
 };
 
 }; // namespace hardware
