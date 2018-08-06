@@ -401,6 +401,15 @@ void IPCThreadState::flushCommands()
     if (mProcess->mDriverFD <= 0)
         return;
     talkWithDriver(false);
+    // The flush could have caused post-write refcount decrements to have
+    // been executed, which in turn could result in BC_RELEASE/BC_DECREFS
+    // being queued in mOut. So flush again, if we need to.
+    if (mOut.dataSize() > 0) {
+        talkWithDriver(false);
+    }
+    if (mOut.dataSize() > 0) {
+        ALOGW("mOut.dataSize() > 0 after flushCommands()");
+    }
 }
 
 void IPCThreadState::blockUntilThreadAvailable()
@@ -442,12 +451,15 @@ status_t IPCThreadState::getAndExecuteCommand()
 
         pthread_mutex_lock(&mProcess->mThreadCountLock);
         mProcess->mExecutingThreadsCount--;
-        if (mProcess->mExecutingThreadsCount < mProcess->mMaxThreads && mProcess->mMaxThreads > 1 &&
+        if (mProcess->mExecutingThreadsCount < mProcess->mMaxThreads &&
             mProcess->mStarvationStartTimeMs != 0) {
             int64_t starvationTimeMs = uptimeMillis() - mProcess->mStarvationStartTimeMs;
             if (starvationTimeMs > 100) {
-                ALOGW("All binder threads in pool (%zu threads) busy for %" PRId64 " ms",
-                      mProcess->mMaxThreads, starvationTimeMs);
+                // If there is only a single-threaded client, nobody would be blocked
+                // on this, and it's not really starvation. (see b/37647467)
+                ALOGW("All binder threads in pool (%zu threads) busy for %" PRId64 " ms%s",
+                      mProcess->mMaxThreads, starvationTimeMs,
+                      mProcess->mMaxThreads > 1 ? "" : " (may be a false alarm)");
             }
             mProcess->mStarvationStartTimeMs = 0;
         }
@@ -500,6 +512,27 @@ void IPCThreadState::processPendingDerefs()
                 obj->decStrong(mProcess.get());
             }
         }
+    }
+}
+
+void IPCThreadState::processPostWriteDerefs()
+{
+    /*
+     * libhwbinder has a flushCommands() in the BpHwBinder destructor,
+     * which makes this function (potentially) reentrant.
+     * New entries shouldn't be added though, so just iterating until empty
+     * should be safe.
+     */
+    while (mPostWriteWeakDerefs.size() > 0) {
+        RefBase::weakref_type* refs = mPostWriteWeakDerefs[0];
+        mPostWriteWeakDerefs.removeAt(0);
+        refs->decWeak(mProcess.get());
+    }
+
+    while (mPostWriteStrongDerefs.size() > 0) {
+        RefBase* obj = mPostWriteStrongDerefs[0];
+        mPostWriteStrongDerefs.removeAt(0);
+        obj->decStrong(mProcess.get());
     }
 }
 
@@ -635,11 +668,14 @@ status_t IPCThreadState::transact(int32_t handle,
     return err;
 }
 
-void IPCThreadState::incStrongHandle(int32_t handle)
+void IPCThreadState::incStrongHandle(int32_t handle, BpHwBinder *proxy)
 {
     LOG_REMOTEREFS("IPCThreadState::incStrongHandle(%d)\n", handle);
     mOut.writeInt32(BC_ACQUIRE);
     mOut.writeInt32(handle);
+    // Create a temp reference until the driver has handled this command.
+    proxy->incStrong(mProcess.get());
+    mPostWriteStrongDerefs.push(proxy);
 }
 
 void IPCThreadState::decStrongHandle(int32_t handle)
@@ -649,11 +685,14 @@ void IPCThreadState::decStrongHandle(int32_t handle)
     mOut.writeInt32(handle);
 }
 
-void IPCThreadState::incWeakHandle(int32_t handle)
+void IPCThreadState::incWeakHandle(int32_t handle, BpHwBinder *proxy)
 {
     LOG_REMOTEREFS("IPCThreadState::incWeakHandle(%d)\n", handle);
     mOut.writeInt32(BC_INCREFS);
     mOut.writeInt32(handle);
+    // Create a temp reference until the driver has handled this command.
+    proxy->getWeakRefs()->incWeak(mProcess.get());
+    mPostWriteWeakDerefs.push(proxy->getWeakRefs());
 }
 
 void IPCThreadState::decWeakHandle(int32_t handle)
@@ -909,8 +948,10 @@ status_t IPCThreadState::talkWithDriver(bool doReceive)
         if (bwr.write_consumed > 0) {
             if (bwr.write_consumed < mOut.dataSize())
                 mOut.remove(0, bwr.write_consumed);
-            else
+            else {
                 mOut.setDataSize(0);
+                processPostWriteDerefs();
+            }
         }
         if (bwr.read_consumed > 0) {
             mIn.setDataSize(bwr.read_consumed);
