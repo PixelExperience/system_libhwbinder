@@ -444,7 +444,7 @@ ProcessState::ProcessState(size_t mmap_size)
         mVMStart = mmap(nullptr, mMmapSize, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
         if (mVMStart == MAP_FAILED) {
             // *sigh*
-            ALOGE("Using /dev/hwbinder failed: unable to mmap transaction memory.\n");
+            ALOGE("Mmapping /dev/hwbinder failed: %s\n", strerror(errno));
             close(mDriverFD);
             mDriverFD = -1;
         }
