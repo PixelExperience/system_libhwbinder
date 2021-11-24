@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "6cdb6ad6_31e51f63",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000507
+      },
+      "writtenOn": "2021-11-24T02:36:17Z",
+      "side": 1,
+      "message": "No need for more after this commit\nhttps://github.com/PixelExperience-Devices/device_xiaomi_picasso/commit/fe171c26ee9ad41db5abb68f4d0b5e92c4de5241",
+      "revId": "e00cd6750ea02dd94db9f70d46131ff710911cfa",
+      "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
+    }
+  ]
+}
