@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "54aece6e_b7a59998",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000229
+      },
+      "writtenOn": "2021-11-27T06:07:11Z",
+      "side": 1,
+      "message": "Patch vendor.qti.hardware.camera.postproc@1.0-service-impl.so instead",
+      "revId": "4eb826c2605489123a856bba7c33e0c2e909a719",
+      "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
+    }
+  ]
+}
