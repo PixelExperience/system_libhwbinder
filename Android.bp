@@ -150,4 +150,12 @@ cc_defaults {
             },
         },
     },
+    arch: {
+        // TODO(b/254713216): undefined symbol in BufferedTextOutput::getBuffer
+        riscv64: {
+            lto: {
+                thin: false,
+            },
+        },
+    },
 }
